@@ -1,9 +1,11 @@
+//go:build !sonic
+// +build !sonic
+
 package jsonx
 
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"strings"
 )
@@ -48,8 +50,4 @@ func UnmarshalFromReader(reader io.Reader, v interface{}) error {
 func unmarshalUseNumber(decoder *json.Decoder, v interface{}) error {
 	decoder.UseNumber()
 	return decoder.Decode(v)
-}
-
-func formatError(v string, err error) error {
-	return fmt.Errorf("string: `%s`, error: `%s`", v, err.Error())
 }
