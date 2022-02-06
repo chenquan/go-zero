@@ -35,8 +35,8 @@ jobs:
 
       - name: Codecov
         uses: codecov/codecov-action@v2
-  test-sonic:
-    name: Linux
+  test-sonic-json:
+    name: sonic-json
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.x
