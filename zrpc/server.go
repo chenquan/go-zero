@@ -1,6 +1,7 @@
 package zrpc
 
 import (
+	"github.com/zeromicro/go-zero/internal/version"
 	"log"
 	"time"
 
@@ -41,6 +42,8 @@ func NewServer(c RpcServerConf, register internal.RegisterFn) (*RpcServer, error
 	serverOptions := []internal.ServerOption{
 		internal.WithMetrics(metrics),
 	}
+
+	version.PrintGoZeroVersion()
 
 	if c.HasEtcd() {
 		server, err = internal.NewRpcPubServer(c.Etcd, c.ListenOn, serverOptions...)

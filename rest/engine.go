@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/zeromicro/go-zero/core/logx"
 	"net/http"
 	"time"
 
@@ -111,6 +112,10 @@ func (ng *engine) bindRoutes(router httpx.Router) error {
 	metrics := ng.createMetrics()
 
 	for _, fr := range ng.routes {
+		for _, route := range fr.routes {
+			logx.Infof("route - Method:%s, Path:%s", route.Method, route.Path)
+		}
+
 		if err := ng.bindFeaturedRoutes(router, fr, metrics); err != nil {
 			return err
 		}

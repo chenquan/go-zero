@@ -2,6 +2,7 @@ package rest
 
 import (
 	"crypto/tls"
+	"github.com/zeromicro/go-zero/internal/version"
 	"log"
 	"net/http"
 	"path"
@@ -43,6 +44,8 @@ func NewServer(c RestConf, opts ...RunOption) (*Server, error) {
 	if err := c.SetUp(); err != nil {
 		return nil, err
 	}
+
+	version.PrintGoZeroVersion()
 
 	server := &Server{
 		ngin:   newEngine(c),
