@@ -26,6 +26,7 @@ const (
 // A ServiceConf is a service config.
 type ServiceConf struct {
 	Name       string
+	Version    string `json:",default=1.0"`
 	Log        logx.LogConf
 	Mode       string            `json:",default=pro,options=dev|test|rt|pre|pro"`
 	MetricsUrl string            `json:",optional"`

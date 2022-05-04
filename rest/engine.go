@@ -10,6 +10,7 @@ import (
 	"github.com/justinas/alice"
 	"github.com/zeromicro/go-zero/core/codec"
 	"github.com/zeromicro/go-zero/core/load"
+	"github.com/zeromicro/go-zero/core/metadata"
 	"github.com/zeromicro/go-zero/core/stat"
 	"github.com/zeromicro/go-zero/rest/handler"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -85,6 +86,7 @@ func (ng *engine) bindFeaturedRoutes(router httpx.Router, fr featuredRoutes, met
 func (ng *engine) bindRoute(fr featuredRoutes, router httpx.Router, metrics *stat.Metrics,
 	route Route, verifier func(chain alice.Chain) alice.Chain) error {
 	chain := alice.New(
+		handler.MetadataHandler(metadata.New(map[string]string{"api-version": ng.conf.Version, "name": ng.conf.Name})),
 		handler.TracingHandler(ng.conf.Name, route.Path),
 		ng.getLogHandler(),
 		handler.PrometheusHandler(route.Path),
