@@ -7,7 +7,6 @@ on:
 jobs:
   releases-matrix:
     name: Release goctl binary
-    if: ""
     runs-on: ubuntu-latest
     strategy:
       matrix:
