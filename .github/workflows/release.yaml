@@ -2,7 +2,7 @@ on:
   release:
     types: [ created ]
     tags:
-      - goctl/*
+      - tools/goctl/*
 
 jobs:
   releases-matrix:
