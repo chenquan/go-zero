@@ -1,8 +1,8 @@
 on:
   release:
     types: [ created ]
-    tags:
-      - tools/goctl/*
+#    tags:
+#      - tools/goctl/*
 
 jobs:
   releases-matrix:
