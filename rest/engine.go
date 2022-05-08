@@ -35,16 +35,16 @@ type engine struct {
 }
 
 func newEngine(c RestConf) *engine {
-	srv := &engine{
+	svr := &engine{
 		conf: c,
 	}
 	if c.CpuThreshold > 0 {
-		srv.shedder = load.NewAdaptiveShedder(load.WithCpuThreshold(c.CpuThreshold))
-		srv.priorityShedder = load.NewAdaptiveShedder(load.WithCpuThreshold(
+		svr.shedder = load.NewAdaptiveShedder(load.WithCpuThreshold(c.CpuThreshold))
+		svr.priorityShedder = load.NewAdaptiveShedder(load.WithCpuThreshold(
 			(c.CpuThreshold + topCpuUsage) >> 1))
 	}
 
-	return srv
+	return svr
 }
 
 func (ng *engine) addRoutes(r featuredRoutes) {
@@ -94,7 +94,7 @@ func (ng *engine) bindRoute(fr featuredRoutes, router httpx.Router, metrics *sta
 		handler.TimeoutHandler(ng.checkedTimeout(fr.timeout)),
 		handler.RecoverHandler,
 		handler.MetricHandler(metrics),
-		handler.MaxBytesHandler(ng.conf.MaxBytes),
+		handler.MaxBytesHandler(ng.checkedMaxBytes(fr.maxBytes)),
 		handler.GunzipHandler,
 	)
 	chain = ng.appendAuthHandler(fr, chain, verifier)
@@ -117,6 +117,14 @@ func (ng *engine) bindRoutes(router httpx.Router) error {
 	}
 
 	return nil
+}
+
+func (ng *engine) checkedMaxBytes(bytes int64) int64 {
+	if bytes > 0 {
+		return bytes
+	}
+
+	return ng.conf.MaxBytes
 }
 
 func (ng *engine) checkedTimeout(timeout time.Duration) time.Duration {
@@ -238,9 +246,9 @@ func (ng *engine) start(router httpx.Router) error {
 	}
 
 	return internal.StartHttps(ng.conf.Host, ng.conf.Port, ng.conf.CertFile,
-		ng.conf.KeyFile, router, func(srv *http.Server) {
+		ng.conf.KeyFile, router, func(svr *http.Server) {
 			if ng.tlsConfig != nil {
-				srv.TLSConfig = ng.tlsConfig
+				svr.TLSConfig = ng.tlsConfig
 			}
 		})
 }

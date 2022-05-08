@@ -1,6 +1,7 @@
 package generator
 
 import (
+	_ "embed"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -14,43 +15,19 @@ import (
 	"github.com/zeromicro/go-zero/tools/goctl/util/stringx"
 )
 
-const (
-	logicTemplate = `package logic
-
-import (
-	"context"
-
-	{{.imports}}
-
-	"github.com/zeromicro/go-zero/core/logx"
-)
-
-type {{.logicName}} struct {
-	ctx    context.Context
-	svcCtx *svc.ServiceContext
-	logx.Logger
-}
-
-func New{{.logicName}}(ctx context.Context,svcCtx *svc.ServiceContext) *{{.logicName}} {
-	return &{{.logicName}}{
-		ctx:    ctx,
-		svcCtx: svcCtx,
-		Logger: logx.WithContext(ctx),
-	}
-}
-{{.functions}}
-`
-	logicFunctionTemplate = `{{if .hasComment}}{{.comment}}{{end}}
+const logicFunctionTemplate = `{{if .hasComment}}{{.comment}}{{end}}
 func (l *{{.logicName}}) {{.method}} ({{if .hasReq}}in {{.request}}{{if .stream}},stream {{.streamBody}}{{end}}{{else}}stream {{.streamBody}}{{end}}) ({{if .hasReply}}{{.response}},{{end}} error) {
 	// todo: add your logic here and delete this line
 	
 	return {{if .hasReply}}&{{.responseType}}{},{{end}} nil
 }
 `
-)
+
+//go:embed logic.tpl
+var logicTemplate string
 
 // GenLogic generates the logic file of the rpc service, which corresponds to the RPC definition items in proto.
-func (g *DefaultGenerator) GenLogic(ctx DirContext, proto parser.Proto, cfg *conf.Config) error {
+func (g *Generator) GenLogic(ctx DirContext, proto parser.Proto, cfg *conf.Config) error {
 	dir := ctx.GetLogic()
 	service := proto.Service.Service.Name
 	for _, rpc := range proto.Service.RPC {
@@ -84,7 +61,7 @@ func (g *DefaultGenerator) GenLogic(ctx DirContext, proto parser.Proto, cfg *con
 	return nil
 }
 
-func (g *DefaultGenerator) genLogicFunction(serviceName, goPackage string, rpc *parser.RPC) (string, error) {
+func (g *Generator) genLogicFunction(serviceName, goPackage string, rpc *parser.RPC) (string, error) {
 	functions := make([]string, 0)
 	text, err := pathx.LoadTemplate(category, logicFuncTemplateFileFile, logicFunctionTemplate)
 	if err != nil {

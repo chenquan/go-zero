@@ -1,9 +1,12 @@
 package command
 
 import (
+	_ "embed"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +16,8 @@ import (
 )
 
 var (
-	sql = "-- 用户表 --\nCREATE TABLE `user` (\n  `id` bigint(10) NOT NULL AUTO_INCREMENT,\n  `name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '用户名称',\n  `password` varchar(255) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '用户密码',\n  `mobile` varchar(255) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '手机号',\n  `gender` char(5) COLLATE utf8mb4_general_ci NOT NULL COMMENT '男｜女｜未公开',\n  `nickname` varchar(255) COLLATE utf8mb4_general_ci DEFAULT '' COMMENT '用户昵称',\n  `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,\n  `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  PRIMARY KEY (`id`),\n  UNIQUE KEY `name_index` (`name`),\n  UNIQUE KEY `mobile_index` (`mobile`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;\n\n"
+	//go:embed testdata/user.sql
+	sql string
 	cfg = &config.Config{
 		NamingFormat: "gozero",
 	}
@@ -83,4 +87,31 @@ func TestFromDDl(t *testing.T) {
 	fromDDL("go-zero")
 	_ = os.Remove(filename)
 	fromDDL("1gozero")
+}
+
+func Test_parseTableList(t *testing.T) {
+	testData := []string{"foo", "b*", "bar", "back_up", "foo,bar,b*"}
+	patterns := parseTableList(testData)
+	actual := patterns.list()
+	expected := []string{"foo", "b*", "bar", "back_up"}
+	sort.Slice(actual, func(i, j int) bool {
+		return actual[i] > actual[j]
+	})
+	sort.Slice(expected, func(i, j int) bool {
+		return expected[i] > expected[j]
+	})
+	assert.Equal(t, strings.Join(expected, ","), strings.Join(actual, ","))
+
+	matchTestData := map[string]bool{
+		"foo":     true,
+		"bar":     true,
+		"back_up": true,
+		"bit":     true,
+		"ab":      false,
+		"b":       true,
+	}
+	for v, expected := range matchTestData {
+		actual := patterns.Match(v)
+		assert.Equal(t, expected, actual)
+	}
 }

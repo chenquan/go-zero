@@ -129,7 +129,18 @@ func TestWriteJsonTimeout(t *testing.T) {
 	// only log it and ignore
 	w := tracedResponseWriter{
 		headers: make(map[string][]string),
-		timeout: true,
+		err:     http.ErrHandlerTimeout,
+	}
+	msg := message{Name: "anyone"}
+	WriteJson(&w, http.StatusOK, msg)
+	assert.Equal(t, http.StatusOK, w.code)
+}
+
+func TestWriteJsonError(t *testing.T) {
+	// only log it and ignore
+	w := tracedResponseWriter{
+		headers: make(map[string][]string),
+		err:     errors.New("foo"),
 	}
 	msg := message{Name: "anyone"}
 	WriteJson(&w, http.StatusOK, msg)
@@ -146,13 +157,24 @@ func TestWriteJsonLessWritten(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.code)
 }
 
+func TestWriteJsonMarshalFailed(t *testing.T) {
+	w := tracedResponseWriter{
+		headers: make(map[string][]string),
+	}
+	WriteJson(&w, http.StatusOK, map[string]interface{}{
+		"Data": complex(0, 0),
+	})
+	assert.Equal(t, http.StatusInternalServerError, w.code)
+}
+
 type tracedResponseWriter struct {
 	headers     map[string][]string
 	builder     strings.Builder
 	hasBody     bool
 	code        int
 	lessWritten bool
-	timeout     bool
+	wroteHeader bool
+	err         error
 }
 
 func (w *tracedResponseWriter) Header() http.Header {
@@ -160,8 +182,8 @@ func (w *tracedResponseWriter) Header() http.Header {
 }
 
 func (w *tracedResponseWriter) Write(bytes []byte) (n int, err error) {
-	if w.timeout {
-		return 0, http.ErrHandlerTimeout
+	if w.err != nil {
+		return 0, w.err
 	}
 
 	n, err = w.builder.Write(bytes)
@@ -174,5 +196,9 @@ func (w *tracedResponseWriter) Write(bytes []byte) (n int, err error) {
 }
 
 func (w *tracedResponseWriter) WriteHeader(code int) {
+	if w.wroteHeader {
+		return
+	}
+	w.wroteHeader = true
 	w.code = code
 }

@@ -8,9 +8,20 @@ English | [简体中文](readme-cn.md)
 [![codecov](https://codecov.io/gh/zeromicro/go-zero/branch/master/graph/badge.svg)](https://codecov.io/gh/zeromicro/go-zero)
 [![Go Report Card](https://goreportcard.com/badge/github.com/zeromicro/go-zero)](https://goreportcard.com/report/github.com/zeromicro/go-zero)
 [![Release](https://img.shields.io/github/v/release/zeromicro/go-zero.svg?style=flat-square)](https://github.com/zeromicro/go-zero)
+[![Go Reference](https://pkg.go.dev/badge/github.com/zeromicro/go-zero.svg)](https://pkg.go.dev/github.com/zeromicro/go-zero)
+[![Awesome Go](https://cdn.rawgit.com/sindresorhus/awesome/d7305f38d29fed78fa85652e3a63e154dd8e8829/media/badge.svg)](https://github.com/avelino/awesome-go)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Discord](https://img.shields.io/discord/794530774463414292?label=chat&logo=discord)](https://discord.gg/4JQvC5A4Fe)
 
-**Note: To meet the requirements of Open Source Foundation, we moved go-zero from tal-tech to zeromicro (a neutral GitHub organization).**
+<a href="https://www.producthunt.com/posts/go-zero?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-go&#0045;zero" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=334030&theme=light" alt="go&#0045;zero - A&#0032;web&#0032;&#0038;&#0032;rpc&#0032;framework&#0032;written&#0032;in&#0032;Go&#0046; | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+
+> ***Important!***
+> 
+> To upgrade from versions eariler than v1.3.0, run the following commands.
+> 
+> `go install github.com/zeromicro/go-zero/tools/goctl@latest`
+> 
+> `goctl migrate —verbose —version v1.3.3`
 
 ## 0. what is go-zero
 
@@ -111,6 +122,16 @@ go get -u github.com/zeromicro/go-zero
    
    # for Go 1.16 and later
    go install github.com/zeromicro/go-zero/tools/goctl@latest
+
+   # docker for amd64 architecture
+   docker pull kevinwan/goctl
+   # run goctl like
+   docker run --rm -it -v `pwd`:/app kevinwan/goctl goctl --help
+
+   # docker for arm64 (M1) architecture
+   docker pull kevinwan/goctl:latest-arm64
+   # run goctl like
+   docker run --rm -it -v `pwd`:/app kevinwan/goctl:latest-arm64 goctl --help
    ```
 
    make sure goctl is executable.
@@ -221,7 +242,7 @@ go get -u github.com/zeromicro/go-zero
 
 ## 9. Chat group
 
-Join the chat via https://join.slack.com/t/go-zero/shared_invite/zt-10ruju779-BE4y6lQNB_R21samtyKTgA
+Join the chat via https://discord.gg/4JQvC5A4Fe
 
 ## 10. Cloud Native Landscape
 

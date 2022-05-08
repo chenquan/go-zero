@@ -17,7 +17,8 @@
 
 # for test purpose
 **/adhoc
-**/testdata
+go.work
+go.work.sum
 
 # gitlab ci
 .cache

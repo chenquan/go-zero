@@ -1,6 +1,7 @@
 package generator
 
 import (
+	_ "embed"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -13,47 +14,11 @@ import (
 	"github.com/zeromicro/go-zero/tools/goctl/util/stringx"
 )
 
-const mainTemplate = `package main
-
-import (
-	"flag"
-	"fmt"
-
-	{{.imports}}
-
-	"github.com/zeromicro/go-zero/core/conf"
-	"github.com/zeromicro/go-zero/core/service"
-	"github.com/zeromicro/go-zero/zrpc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
-)
-
-var configFile = flag.String("f", "etc/{{.serviceName}}.yaml", "the config file")
-
-func main() {
-	flag.Parse()
-
-	var c config.Config
-	conf.MustLoad(*configFile, &c)
-	ctx := svc.NewServiceContext(c)
-	srv := server.New{{.serviceNew}}Server(ctx)
-
-	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
-		{{.pkg}}.Register{{.service}}Server(grpcServer, srv)
-
-		if c.Mode == service.DevMode || c.Mode == service.TestMode {
-			reflection.Register(grpcServer)
-		}
-	})
-	defer s.Stop()
-
-	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
-	s.Start()
-}
-`
+//go:embed main.tpl
+var mainTemplate string
 
 // GenMain generates the main file of the rpc service, which is an rpc service program call entry
-func (g *DefaultGenerator) GenMain(ctx DirContext, proto parser.Proto, cfg *conf.Config) error {
+func (g *Generator) GenMain(ctx DirContext, proto parser.Proto, cfg *conf.Config) error {
 	mainFilename, err := format.FileNamingFormat(cfg.NamingFormat, ctx.GetServiceName().Source())
 	if err != nil {
 		return err

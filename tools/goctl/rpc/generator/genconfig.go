@@ -1,6 +1,7 @@
 package generator
 
 import (
+	_ "embed"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,20 +12,14 @@ import (
 	"github.com/zeromicro/go-zero/tools/goctl/util/pathx"
 )
 
-const configTemplate = `package config
-
-import "github.com/zeromicro/go-zero/zrpc"
-
-type Config struct {
-	zrpc.RpcServerConf
-}
-`
+//go:embed config.tpl
+var configTemplate string
 
 // GenConfig generates the configuration structure definition file of the rpc service,
 // which contains the zrpc.RpcServerConf configuration item by default.
 // You can specify the naming style of the target file name through config.Config. For details,
 // see https://github.com/zeromicro/go-zero/tree/master/tools/goctl/config/config.go
-func (g *DefaultGenerator) GenConfig(ctx DirContext, _ parser.Proto, cfg *conf.Config) error {
+func (g *Generator) GenConfig(ctx DirContext, _ parser.Proto, cfg *conf.Config) error {
 	dir := ctx.GetConfig()
 	configFilename, err := format.FileNamingFormat(cfg.NamingFormat, "config")
 	if err != nil {

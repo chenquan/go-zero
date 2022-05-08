@@ -387,30 +387,33 @@ func TestRedis_Mget(t *testing.T) {
 
 func TestRedis_SetBit(t *testing.T) {
 	runOnRedis(t, func(client *Redis) {
-		err := New(client.Addr, badType()).SetBit("key", 1, 1)
+		_, err := New(client.Addr, badType()).SetBit("key", 1, 1)
 		assert.NotNil(t, err)
-		err = client.SetBit("key", 1, 1)
+		val, err := client.SetBit("key", 1, 1)
 		assert.Nil(t, err)
+		assert.Equal(t, 0, val)
 	})
 }
 
 func TestRedis_GetBit(t *testing.T) {
 	runOnRedis(t, func(client *Redis) {
-		err := client.SetBit("key", 2, 1)
+		val, err := client.SetBit("key", 2, 1)
 		assert.Nil(t, err)
+		assert.Equal(t, 0, val)
 		_, err = New(client.Addr, badType()).GetBit("key", 2)
 		assert.NotNil(t, err)
-		val, err := client.GetBit("key", 2)
+		v, err := client.GetBit("key", 2)
 		assert.Nil(t, err)
-		assert.Equal(t, 1, val)
+		assert.Equal(t, 1, v)
 	})
 }
 
 func TestRedis_BitCount(t *testing.T) {
 	runOnRedis(t, func(client *Redis) {
 		for i := 0; i < 11; i++ {
-			err := client.SetBit("key", int64(i), 1)
+			val, err := client.SetBit("key", int64(i), 1)
 			assert.Nil(t, err)
+			assert.Equal(t, 0, val)
 		}
 
 		_, err := New(client.Addr, badType()).BitCount("key", 0, -1)
@@ -698,6 +701,28 @@ func TestRedis_Set(t *testing.T) {
 		num, err = client.Sinterstore("key4", "key1", "key2")
 		assert.Nil(t, err)
 		assert.Equal(t, 3, num)
+	})
+}
+
+func TestRedis_GetSet(t *testing.T) {
+	runOnRedis(t, func(client *Redis) {
+		_, err := New(client.Addr, badType()).GetSet("hello", "world")
+		assert.NotNil(t, err)
+		val, err := client.GetSet("hello", "world")
+		assert.Nil(t, err)
+		assert.Equal(t, "", val)
+		val, err = client.Get("hello")
+		assert.Nil(t, err)
+		assert.Equal(t, "world", val)
+		val, err = client.GetSet("hello", "newworld")
+		assert.Nil(t, err)
+		assert.Equal(t, "world", val)
+		val, err = client.Get("hello")
+		assert.Nil(t, err)
+		assert.Equal(t, "newworld", val)
+		ret, err := client.Del("hello")
+		assert.Nil(t, err)
+		assert.Equal(t, 1, ret)
 	})
 }
 

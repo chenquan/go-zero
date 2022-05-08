@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/urfave/cli"
+	"github.com/spf13/cobra"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/postgres"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"github.com/zeromicro/go-zero/tools/goctl/config"
+	"github.com/zeromicro/go-zero/tools/goctl/model/sql/command/migrationnotes"
 	"github.com/zeromicro/go-zero/tools/goctl/model/sql/gen"
 	"github.com/zeromicro/go-zero/tools/goctl/model/sql/model"
 	"github.com/zeromicro/go-zero/tools/goctl/model/sql/util"
@@ -19,33 +20,51 @@ import (
 	"github.com/zeromicro/go-zero/tools/goctl/util/pathx"
 )
 
-const (
-	flagSrc      = "src"
-	flagDir      = "dir"
-	flagCache    = "cache"
-	flagIdea     = "idea"
-	flagURL      = "url"
-	flagTable    = "table"
-	flagStyle    = "style"
-	flagDatabase = "database"
-	flagSchema   = "schema"
-	flagHome     = "home"
+var (
+	// VarStringSrc describes the source file of sql.
+	VarStringSrc string
+	// VarStringDir describes the output directory of sql.
+	VarStringDir string
+	// VarBoolCache describes whether the cache is enabled.
+	VarBoolCache bool
+	// VarBoolIdea describes whether is idea or not.
+	VarBoolIdea bool
+	// VarStringURL describes the dsn of the sql.
+	VarStringURL string
+	// VarStringSliceTable describes tables.
+	VarStringSliceTable []string
+	// VarStringTable describes a table of sql.
+	VarStringTable string
+	// VarStringStyle describes the style.
+	VarStringStyle string
+	// VarStringDatabase describes the database.
+	VarStringDatabase string
+	// VarStringSchema describes the schema of postgresql.
+	VarStringSchema string
+	// VarStringHome describes the goctl home.
+	VarStringHome string
+	// VarStringRemote describes the remote git repository.
+	VarStringRemote string
+	// VarStringBranch describes the git branch of the repository.
+	VarStringBranch string
 )
 
 var errNotMatched = errors.New("sql not matched")
 
 // MysqlDDL generates model code from ddl
-func MysqlDDL(ctx *cli.Context) error {
-	src := ctx.String(flagSrc)
-	dir := ctx.String(flagDir)
-	cache := ctx.Bool(flagCache)
-	idea := ctx.Bool(flagIdea)
-	style := ctx.String(flagStyle)
-	database := ctx.String(flagDatabase)
-	home := ctx.String(flagHome)
-	remote := ctx.String("remote")
+func MysqlDDL(_ *cobra.Command, _ []string) error {
+	migrationnotes.BeforeCommands(VarStringDir, VarStringStyle)
+	src := VarStringSrc
+	dir := VarStringDir
+	cache := VarBoolCache
+	idea := VarBoolIdea
+	style := VarStringStyle
+	database := VarStringDatabase
+	home := VarStringHome
+	remote := VarStringRemote
+	branch := VarStringBranch
 	if len(remote) > 0 {
-		repo, _ := file.CloneIntoGitHome(remote)
+		repo, _ := file.CloneIntoGitHome(remote, branch)
 		if len(repo) > 0 {
 			home = repo
 		}
@@ -62,16 +81,18 @@ func MysqlDDL(ctx *cli.Context) error {
 }
 
 // MySqlDataSource generates model code from datasource
-func MySqlDataSource(ctx *cli.Context) error {
-	url := strings.TrimSpace(ctx.String(flagURL))
-	dir := strings.TrimSpace(ctx.String(flagDir))
-	cache := ctx.Bool(flagCache)
-	idea := ctx.Bool(flagIdea)
-	style := ctx.String(flagStyle)
-	home := ctx.String("home")
-	remote := ctx.String("remote")
+func MySqlDataSource(_ *cobra.Command, _ []string) error {
+	migrationnotes.BeforeCommands(VarStringDir, VarStringStyle)
+	url := strings.TrimSpace(VarStringURL)
+	dir := strings.TrimSpace(VarStringDir)
+	cache := VarBoolCache
+	idea := VarBoolIdea
+	style := VarStringStyle
+	home := VarStringHome
+	remote := VarStringRemote
+	branch := VarStringBranch
 	if len(remote) > 0 {
-		repo, _ := file.CloneIntoGitHome(remote)
+		repo, _ := file.CloneIntoGitHome(remote, branch)
 		if len(repo) > 0 {
 			home = repo
 		}
@@ -80,27 +101,67 @@ func MySqlDataSource(ctx *cli.Context) error {
 		pathx.RegisterGoctlHome(home)
 	}
 
-	pattern := strings.TrimSpace(ctx.String(flagTable))
+	tableValue := VarStringSliceTable
+	patterns := parseTableList(tableValue)
 	cfg, err := config.NewConfig(style)
 	if err != nil {
 		return err
 	}
 
-	return fromMysqlDataSource(url, pattern, dir, cfg, cache, idea)
+	return fromMysqlDataSource(url, dir, patterns, cfg, cache, idea)
+}
+
+type pattern map[string]struct{}
+
+func (p pattern) Match(s string) bool {
+	for v := range p {
+		match, err := filepath.Match(v, s)
+		if err != nil {
+			console.Error("%+v", err)
+			continue
+		}
+		if match {
+			return true
+		}
+	}
+	return false
+}
+
+func (p pattern) list() []string {
+	var ret []string
+	for v := range p {
+		ret = append(ret, v)
+	}
+	return ret
+}
+
+func parseTableList(tableValue []string) pattern {
+	tablePattern := make(pattern)
+	for _, v := range tableValue {
+		fields := strings.FieldsFunc(v, func(r rune) bool {
+			return r == ','
+		})
+		for _, f := range fields {
+			tablePattern[f] = struct{}{}
+		}
+	}
+	return tablePattern
 }
 
 // PostgreSqlDataSource generates model code from datasource
-func PostgreSqlDataSource(ctx *cli.Context) error {
-	url := strings.TrimSpace(ctx.String(flagURL))
-	dir := strings.TrimSpace(ctx.String(flagDir))
-	cache := ctx.Bool(flagCache)
-	idea := ctx.Bool(flagIdea)
-	style := ctx.String(flagStyle)
-	schema := ctx.String(flagSchema)
-	home := ctx.String("home")
-	remote := ctx.String("remote")
+func PostgreSqlDataSource(_ *cobra.Command, _ []string) error {
+	migrationnotes.BeforeCommands(VarStringDir, VarStringStyle)
+	url := strings.TrimSpace(VarStringURL)
+	dir := strings.TrimSpace(VarStringDir)
+	cache := VarBoolCache
+	idea := VarBoolIdea
+	style := VarStringStyle
+	schema := VarStringSchema
+	home := VarStringHome
+	remote := VarStringRemote
+	branch := VarStringBranch
 	if len(remote) > 0 {
-		repo, _ := file.CloneIntoGitHome(remote)
+		repo, _ := file.CloneIntoGitHome(remote, branch)
 		if len(repo) > 0 {
 			home = repo
 		}
@@ -113,7 +174,7 @@ func PostgreSqlDataSource(ctx *cli.Context) error {
 		schema = "public"
 	}
 
-	pattern := strings.TrimSpace(ctx.String(flagTable))
+	pattern := strings.TrimSpace(VarStringTable)
 	cfg, err := config.NewConfig(style)
 	if err != nil {
 		return err
@@ -153,14 +214,14 @@ func fromDDL(src, dir string, cfg *config.Config, cache, idea bool, database str
 	return nil
 }
 
-func fromMysqlDataSource(url, pattern, dir string, cfg *config.Config, cache, idea bool) error {
+func fromMysqlDataSource(url, dir string, tablePat pattern, cfg *config.Config, cache, idea bool) error {
 	log := console.NewConsole(idea)
 	if len(url) == 0 {
 		log.Error("%v", "expected data source of mysql, but nothing found")
 		return nil
 	}
 
-	if len(pattern) == 0 {
+	if len(tablePat) == 0 {
 		log.Error("%v", "expected table or table globbing patterns, but nothing found")
 		return nil
 	}
@@ -182,12 +243,7 @@ func fromMysqlDataSource(url, pattern, dir string, cfg *config.Config, cache, id
 
 	matchTables := make(map[string]*model.Table)
 	for _, item := range tables {
-		match, err := filepath.Match(pattern, item)
-		if err != nil {
-			return err
-		}
-
-		if !match {
+		if !tablePat.Match(item) {
 			continue
 		}
 

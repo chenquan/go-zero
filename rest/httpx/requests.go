@@ -3,17 +3,17 @@ package httpx
 import (
 	"io"
 	"net/http"
-	"net/textproto"
 	"strings"
 
 	"github.com/zeromicro/go-zero/core/mapping"
+	"github.com/zeromicro/go-zero/rest/internal/encoding"
+	"github.com/zeromicro/go-zero/rest/internal/header"
 	"github.com/zeromicro/go-zero/rest/pathvar"
 )
 
 const (
 	formKey           = "form"
 	pathKey           = "path"
-	headerKey         = "header"
 	maxMemory         = 32 << 20 // 32MB
 	maxBodyLen        = 8 << 20  // 8MB
 	separator         = ";"
@@ -21,10 +21,8 @@ const (
 )
 
 var (
-	formUnmarshaler   = mapping.NewUnmarshaler(formKey, mapping.WithStringValues())
-	pathUnmarshaler   = mapping.NewUnmarshaler(pathKey, mapping.WithStringValues())
-	headerUnmarshaler = mapping.NewUnmarshaler(headerKey, mapping.WithStringValues(),
-		mapping.WithCanonicalKeyFunc(textproto.CanonicalMIMEHeaderKey))
+	formUnmarshaler = mapping.NewUnmarshaler(formKey, mapping.WithStringValues())
+	pathUnmarshaler = mapping.NewUnmarshaler(pathKey, mapping.WithStringValues())
 )
 
 // Parse parses the request.
@@ -46,16 +44,7 @@ func Parse(r *http.Request, v interface{}) error {
 
 // ParseHeaders parses the headers request.
 func ParseHeaders(r *http.Request, v interface{}) error {
-	m := map[string]interface{}{}
-	for k, v := range r.Header {
-		if len(v) == 1 {
-			m[k] = v[0]
-		} else {
-			m[k] = v
-		}
-	}
-
-	return headerUnmarshaler.Unmarshal(m, v)
+	return encoding.ParseHeaders(r.Header, v)
 }
 
 // ParseForm parses the form request.
@@ -126,5 +115,5 @@ func ParsePath(r *http.Request, v interface{}) error {
 }
 
 func withJsonBody(r *http.Request) bool {
-	return r.ContentLength > 0 && strings.Contains(r.Header.Get(ContentType), ApplicationJson)
+	return r.ContentLength > 0 && strings.Contains(r.Header.Get(header.ContentType), header.ApplicationJson)
 }
