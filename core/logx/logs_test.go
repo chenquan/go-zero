@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -90,6 +91,86 @@ func (mw *mockWriter) String() string {
 	mw.lock.Lock()
 	defer mw.lock.Unlock()
 	return mw.builder.String()
+}
+
+func TestField(t *testing.T) {
+	tests := []struct {
+		name string
+		f    LogField
+		want map[string]interface{}
+	}{
+		{
+			name: "error",
+			f:    Field("foo", errors.New("bar")),
+			want: map[string]interface{}{
+				"foo": "bar",
+			},
+		},
+		{
+			name: "errors",
+			f:    Field("foo", []error{errors.New("bar"), errors.New("baz")}),
+			want: map[string]interface{}{
+				"foo": []interface{}{"bar", "baz"},
+			},
+		},
+		{
+			name: "strings",
+			f:    Field("foo", []string{"bar", "baz"}),
+			want: map[string]interface{}{
+				"foo": []interface{}{"bar", "baz"},
+			},
+		},
+		{
+			name: "duration",
+			f:    Field("foo", time.Second),
+			want: map[string]interface{}{
+				"foo": "1s",
+			},
+		},
+		{
+			name: "durations",
+			f:    Field("foo", []time.Duration{time.Second, 2 * time.Second}),
+			want: map[string]interface{}{
+				"foo": []interface{}{"1s", "2s"},
+			},
+		},
+		{
+			name: "times",
+			f: Field("foo", []time.Time{
+				time.Date(2020, time.January, 1, 0, 0, 0, 0, time.UTC),
+				time.Date(2020, time.January, 2, 0, 0, 0, 0, time.UTC),
+			}),
+			want: map[string]interface{}{
+				"foo": []interface{}{"2020-01-01 00:00:00 +0000 UTC", "2020-01-02 00:00:00 +0000 UTC"},
+			},
+		},
+		{
+			name: "stringer",
+			f:    Field("foo", ValStringer{val: "bar"}),
+			want: map[string]interface{}{
+				"foo": "bar",
+			},
+		},
+		{
+			name: "stringers",
+			f:    Field("foo", []fmt.Stringer{ValStringer{val: "bar"}, ValStringer{val: "baz"}}),
+			want: map[string]interface{}{
+				"foo": []interface{}{"bar", "baz"},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			w := new(mockWriter)
+			old := writer.Swap(w)
+			defer writer.Store(old)
+
+			Infow("foo", test.f)
+			validateFields(t, w.String(), test.want)
+		})
+	}
 }
 
 func TestFileLineFileMode(t *testing.T) {
@@ -381,7 +462,7 @@ func TestStructedLogWithDuration(t *testing.T) {
 
 	WithDuration(time.Second).Info(message)
 	var entry logEntry
-	if err := json.Unmarshal([]byte(w.builder.String()), &entry); err != nil {
+	if err := json.Unmarshal([]byte(w.String()), &entry); err != nil {
 		t.Error(err)
 	}
 	assert.Equal(t, levelInfo, entry.Level)
@@ -434,7 +515,7 @@ func TestErrorfWithWrappedError(t *testing.T) {
 	defer writer.Store(old)
 
 	Errorf("hello %w", errors.New(message))
-	assert.True(t, strings.Contains(w.builder.String(), "hello there"))
+	assert.True(t, strings.Contains(w.String(), "hello there"))
 }
 
 func TestMustNil(t *testing.T) {
@@ -674,4 +755,19 @@ type ValStringer struct {
 
 func (v ValStringer) String() string {
 	return v.val
+}
+
+func validateFields(t *testing.T, content string, fields map[string]interface{}) {
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(content), &m); err != nil {
+		t.Error(err)
+	}
+
+	for k, v := range fields {
+		if reflect.TypeOf(v).Kind() == reflect.Slice {
+			assert.EqualValues(t, v, m[k])
+		} else {
+			assert.Equal(t, v, m[k], content)
+		}
+	}
 }

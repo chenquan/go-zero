@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,17 +12,22 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"github.com/zeromicro/go-zero/rest/router"
 )
 
 func TestNewServer(t *testing.T) {
+	writer := logx.Reset()
+	defer logx.SetWriter(writer)
+	logx.SetWriter(logx.NewWriter(ioutil.Discard))
+
 	const configYaml = `
 Name: foo
 Port: 54321
 `
 	var cnf RestConf
-	assert.Nil(t, conf.LoadConfigFromYamlBytes([]byte(configYaml), &cnf))
+	assert.Nil(t, conf.LoadFromYamlBytes([]byte(configYaml), &cnf))
 
 	tests := []struct {
 		c    RestConf
@@ -31,7 +37,6 @@ Port: 54321
 		{
 			c:    RestConf{},
 			opts: []RunOption{WithRouter(mockedRouter{}), WithCors()},
-			fail: true,
 		},
 		{
 			c:    cnf,
@@ -271,7 +276,7 @@ Name: foo
 Port: 54321
 `
 	var cnf RestConf
-	assert.Nil(t, conf.LoadConfigFromYamlBytes([]byte(configYaml), &cnf))
+	assert.Nil(t, conf.LoadFromYamlBytes([]byte(configYaml), &cnf))
 
 	testConfig := &tls.Config{
 		CipherSuites: []uint16{
@@ -309,7 +314,7 @@ Name: foo
 Port: 54321
 `
 	var cnf RestConf
-	assert.Nil(t, conf.LoadConfigFromYamlBytes([]byte(configYaml), &cnf))
+	assert.Nil(t, conf.LoadFromYamlBytes([]byte(configYaml), &cnf))
 	rt := router.NewRouter()
 	svr, err := NewServer(cnf, WithRouter(rt))
 	assert.Nil(t, err)
@@ -324,7 +329,7 @@ Name: foo
 Port: 54321
 `
 	var cnf RestConf
-	assert.Nil(t, conf.LoadConfigFromYamlBytes([]byte(configYaml), &cnf))
+	assert.Nil(t, conf.LoadFromYamlBytes([]byte(configYaml), &cnf))
 	rt := router.NewRouter()
 	svr, err := NewServer(cnf, WithRouter(rt))
 	assert.Nil(t, err)

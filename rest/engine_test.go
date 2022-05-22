@@ -146,7 +146,7 @@ Verbose: true
 	for _, yaml := range yamls {
 		for _, route := range routes {
 			var cnf RestConf
-			assert.Nil(t, conf.LoadConfigFromYamlBytes([]byte(yaml), &cnf))
+			assert.Nil(t, conf.LoadFromYamlBytes([]byte(yaml), &cnf))
 			ng := newEngine(cnf)
 			ng.addRoutes(route)
 			ng.use(func(next http.HandlerFunc) http.HandlerFunc {
@@ -298,17 +298,48 @@ func TestEngine_notFoundHandlerNotNilWriteHeader(t *testing.T) {
 	assert.Equal(t, int32(1), atomic.LoadInt32(&called))
 }
 
-type mockedRouter struct{}
+func TestEngine_withTimeout(t *testing.T) {
+	logx.Disable()
 
-func (m mockedRouter) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	tests := []struct {
+		name    string
+		timeout int64
+	}{
+		{
+			name: "not set",
+		},
+		{
+			name:    "set",
+			timeout: 1000,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			ng := newEngine(RestConf{Timeout: test.timeout})
+			svr := &http.Server{}
+			ng.withTimeout()(svr)
+
+			assert.Equal(t, time.Duration(test.timeout)*time.Millisecond*4/5, svr.ReadTimeout)
+			assert.Equal(t, time.Duration(0), svr.ReadHeaderTimeout)
+			assert.Equal(t, time.Duration(test.timeout)*time.Millisecond*9/10, svr.WriteTimeout)
+			assert.Equal(t, time.Duration(0), svr.IdleTimeout)
+		})
+	}
 }
 
-func (m mockedRouter) Handle(method, path string, handler http.Handler) error {
+type mockedRouter struct{}
+
+func (m mockedRouter) ServeHTTP(_ http.ResponseWriter, _ *http.Request) {
+}
+
+func (m mockedRouter) Handle(_, _ string, _ http.Handler) error {
 	return errors.New("foo")
 }
 
-func (m mockedRouter) SetNotFoundHandler(handler http.Handler) {
+func (m mockedRouter) SetNotFoundHandler(_ http.Handler) {
 }
 
-func (m mockedRouter) SetNotAllowedHandler(handler http.Handler) {
+func (m mockedRouter) SetNotAllowedHandler(_ http.Handler) {
 }
