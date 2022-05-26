@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/metadata"
 	"github.com/zeromicro/go-zero/core/syncx"
 	"github.com/zeromicro/go-zero/core/timex"
 	"github.com/zeromicro/go-zero/zrpc/internal/codes"
@@ -47,11 +48,13 @@ func (b *p2cPickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 
 	var conns []*subConn
 	for conn, connInfo := range readySCs {
-		conns = append(conns, &subConn{
-			addr:    connInfo.Address,
-			conn:    conn,
-			success: initSuccess,
-		})
+		connInfo.Address.Attributes.Value("")
+		conns = append(
+			conns, &subConn{
+				addr:    connInfo.Address,
+				conn:    conn,
+				success: initSuccess,
+			})
 	}
 
 	return &p2cPicker{
@@ -66,34 +69,50 @@ func newBuilder() balancer.Builder {
 }
 
 type p2cPicker struct {
-	conns []*subConn
-	r     *rand.Rand
-	stamp *syncx.AtomicDuration
-	lock  sync.Mutex
+	conns      []*subConn
+	colorConns map[string][]*subConn
+	r          *rand.Rand
+	stamp      *syncx.AtomicDuration
+	lock       sync.Mutex
 }
 
 func (p *p2cPicker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
+	context := metadata.NewColorsFromContext(info.Ctx)
+	colors := metadata.ColorsFromContext(context)
+	var conns []*subConn
+
+	if len(colors) == 0 {
+		conns = p.conns
+	} else {
+		for _, color := range colors {
+			if len(p.colorConns[color]) != 0 {
+				conns = p.colorConns[color]
+				break
+			}
+		}
+	}
+
 	var chosen *subConn
-	switch len(p.conns) {
+	switch len(conns) {
 	case 0:
 		return emptyPickResult, balancer.ErrNoSubConnAvailable
 	case 1:
-		chosen = p.choose(p.conns[0], nil)
+		chosen = p.choose(conns[0], nil)
 	case 2:
-		chosen = p.choose(p.conns[0], p.conns[1])
+		chosen = p.choose(conns[0], conns[1])
 	default:
 		var node1, node2 *subConn
 		for i := 0; i < pickTimes; i++ {
-			a := p.r.Intn(len(p.conns))
-			b := p.r.Intn(len(p.conns) - 1)
+			a := p.r.Intn(len(conns))
+			b := p.r.Intn(len(conns) - 1)
 			if b >= a {
 				b++
 			}
-			node1 = p.conns[a]
-			node2 = p.conns[b]
+			node1 = conns[a]
+			node2 = conns[b]
 			if node1.healthy() && node2.healthy() {
 				break
 			}
@@ -174,8 +193,10 @@ func (p *p2cPicker) logStats() {
 	defer p.lock.Unlock()
 
 	for _, conn := range p.conns {
-		stats = append(stats, fmt.Sprintf("conn: %s, load: %d, reqs: %d",
-			conn.addr.Addr, conn.load(), atomic.SwapInt64(&conn.requests, 0)))
+		stats = append(
+			stats, fmt.Sprintf(
+				"conn: %s, load: %d, reqs: %d",
+				conn.addr.Addr, conn.load(), atomic.SwapInt64(&conn.requests, 0)))
 	}
 
 	logx.Statf("p2c - %s", strings.Join(stats, "; "))
