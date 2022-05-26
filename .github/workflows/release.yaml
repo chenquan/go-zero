@@ -1,7 +1,7 @@
 on:
   push:
     tags:
-      - "refs/tags/tools/goctl/*"
+      - "tools/goctl/*"
 jobs:
   releases-matrix:
     name: Release goctl binary
