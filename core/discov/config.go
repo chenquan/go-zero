@@ -1,6 +1,8 @@
 package discov
 
-import "errors"
+import (
+	"errors"
+)
 
 var (
 	// errEmptyEtcdHosts indicates that etcd hosts are empty.

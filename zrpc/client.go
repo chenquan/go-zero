@@ -23,6 +23,8 @@ var (
 	WithTransportCredentials = internal.WithTransportCredentials
 	// WithUnaryClientInterceptor is an alias of internal.WithUnaryClientInterceptor.
 	WithUnaryClientInterceptor = internal.WithUnaryClientInterceptor
+	// WithClientMetadata is an alias of internal.WithClientMetadata.
+	WithClientMetadata = internal.WithClientMetadata
 )
 
 type (

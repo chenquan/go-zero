@@ -22,14 +22,13 @@ func (b *discovBuilder) Build(target resolver.Target, cc resolver.ClientConn, _ 
 	}
 
 	update := func() {
-		var addrs []resolver.Address
-		for _, val := range subset(sub.Values(), subsetSize) {
-			addrs = append(addrs, resolver.Address{
-				Addr: val,
-			})
+		addresses, err := parserAddr(sub)
+		if err != nil {
+			logx.Error(err)
 		}
+
 		if err := cc.UpdateState(resolver.State{
-			Addresses: addrs,
+			Addresses: addresses,
 		}); err != nil {
 			logx.Error(err)
 		}

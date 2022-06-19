@@ -4,6 +4,7 @@ import (
 	"github.com/zeromicro/go-zero/core/discov/internal"
 	"github.com/zeromicro/go-zero/core/lang"
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/md"
 	"github.com/zeromicro/go-zero/core/proc"
 	"github.com/zeromicro/go-zero/core/syncx"
 	"github.com/zeromicro/go-zero/core/threading"
@@ -21,6 +22,7 @@ type (
 		fullKey    string
 		id         int64
 		value      string
+		metadata   md.Metadata
 		lease      clientv3.LeaseID
 		quit       *syncx.DoneChan
 		pauseChan  chan lang.PlaceholderType
@@ -134,7 +136,12 @@ func (p *Publisher) register(client internal.EtcdClient) (clientv3.LeaseID, erro
 	} else {
 		p.fullKey = makeEtcdKey(p.key, int64(lease))
 	}
-	_, err = client.Put(client.Ctx(), p.fullKey, p.value, clientv3.WithLease(lease))
+
+	value := p.value
+	if p.metadata != nil {
+		value = value + "@" + p.metadata.MustString()
+	}
+	_, err = client.Put(client.Ctx(), p.fullKey, value, clientv3.WithLease(lease))
 
 	return lease, err
 }
@@ -163,5 +170,11 @@ func WithPubEtcdAccount(user, pass string) PubOption {
 func WithPubEtcdTLS(certFile, certKeyFile, caFile string, insecureSkipVerify bool) PubOption {
 	return func(pub *Publisher) {
 		logx.Must(RegisterTLS(pub.endpoints, certFile, certKeyFile, caFile, insecureSkipVerify))
+	}
+}
+
+func WithMetadata(metadata md.Metadata) PubOption {
+	return func(pub *Publisher) {
+		pub.metadata = metadata
 	}
 }

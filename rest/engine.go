@@ -97,6 +97,7 @@ func (ng *engine) bindRoute(fr featuredRoutes, router httpx.Router, metrics *sta
 		handler.MetricHandler(metrics),
 		handler.MaxBytesHandler(ng.checkedMaxBytes(fr.maxBytes)),
 		handler.GunzipHandler,
+		handler.MdHandler,
 	)
 	chain = ng.appendAuthHandler(fr, chain, verifier)
 

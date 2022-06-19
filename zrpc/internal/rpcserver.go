@@ -2,7 +2,9 @@ package internal
 
 import (
 	"net"
+	"strings"
 
+	"github.com/zeromicro/go-zero/core/md"
 	"github.com/zeromicro/go-zero/core/proc"
 	"github.com/zeromicro/go-zero/core/stat"
 	"github.com/zeromicro/go-zero/zrpc/internal/serverinterceptors"
@@ -15,11 +17,13 @@ type (
 	ServerOption func(options *rpcServerOptions)
 
 	rpcServerOptions struct {
-		metrics *stat.Metrics
+		metrics  *stat.Metrics
+		metadata md.Metadata
 	}
 
 	rpcServer struct {
-		name string
+		name     string
+		metadata md.Metadata
 		*baseRpcServer
 	}
 )
@@ -60,12 +64,14 @@ func (s *rpcServer) Start(register RegisterFn) error {
 		serverinterceptors.UnaryStatInterceptor(s.metrics),
 		serverinterceptors.UnaryPrometheusInterceptor,
 		serverinterceptors.UnaryBreakerInterceptor,
+		serverinterceptors.UnaryMdInterceptor,
 	}
 	unaryInterceptors = append(unaryInterceptors, s.unaryInterceptors...)
 	streamInterceptors := []grpc.StreamServerInterceptor{
 		serverinterceptors.StreamTracingInterceptor,
 		serverinterceptors.StreamCrashInterceptor,
 		serverinterceptors.StreamBreakerInterceptor,
+		serverinterceptors.StreamMdInterceptor,
 	}
 	streamInterceptors = append(streamInterceptors, s.streamInterceptors...)
 	options := append(s.options, WithUnaryServerInterceptors(unaryInterceptors...),
@@ -92,5 +98,16 @@ func (s *rpcServer) Start(register RegisterFn) error {
 func WithMetrics(metrics *stat.Metrics) ServerOption {
 	return func(options *rpcServerOptions) {
 		options.metrics = metrics
+	}
+}
+func WithServerMetadata(metadata md.Metadata) ServerOption {
+	return func(options *rpcServerOptions) {
+		m := md.Metadata{}
+		metadata.Range(func(key string, values ...string) bool {
+			m.Set(strings.ToLower(key), values...)
+			return true
+		})
+
+		options.metadata = m
 	}
 }

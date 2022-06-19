@@ -13,6 +13,11 @@ import (
 	"google.golang.org/grpc"
 )
 
+// WithServerMetadata is an alias of internal.WithServerMetadata.
+var WithServerMetadata = internal.WithServerMetadata
+
+type ServerOption = internal.ServerOption
+
 // A RpcServer is a rpc server.
 type RpcServer struct {
 	server   internal.Server
@@ -20,8 +25,8 @@ type RpcServer struct {
 }
 
 // MustNewServer returns a RpcSever, exits on any error.
-func MustNewServer(c RpcServerConf, register internal.RegisterFn) *RpcServer {
-	server, err := NewServer(c, register)
+func MustNewServer(c RpcServerConf, register internal.RegisterFn, opts ...ServerOption) *RpcServer {
+	server, err := NewServer(c, register, opts...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -30,7 +35,7 @@ func MustNewServer(c RpcServerConf, register internal.RegisterFn) *RpcServer {
 }
 
 // NewServer returns a RpcServer.
-func NewServer(c RpcServerConf, register internal.RegisterFn) (*RpcServer, error) {
+func NewServer(c RpcServerConf, register internal.RegisterFn, opts ...ServerOption) (*RpcServer, error) {
 	var err error
 	if err = c.Validate(); err != nil {
 		return nil, err
@@ -38,17 +43,15 @@ func NewServer(c RpcServerConf, register internal.RegisterFn) (*RpcServer, error
 
 	var server internal.Server
 	metrics := stat.NewMetrics(c.ListenOn)
-	serverOptions := []internal.ServerOption{
-		internal.WithMetrics(metrics),
-	}
+	opts = append(opts, internal.WithMetrics(metrics))
 
 	if c.HasEtcd() {
-		server, err = internal.NewRpcPubServer(c.Etcd, c.ListenOn, serverOptions...)
+		server, err = internal.NewRpcPubServer(c.Etcd, c.ListenOn, opts...)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		server = internal.NewRpcServer(c.ListenOn, serverOptions...)
+		server = internal.NewRpcServer(c.ListenOn, opts...)
 	}
 
 	server.SetName(c.Name)

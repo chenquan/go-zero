@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeromicro/go-zero/core/md"
 	"github.com/zeromicro/go-zero/zrpc/internal/balancer/p2c"
 	"github.com/zeromicro/go-zero/zrpc/internal/clientinterceptors"
 	"github.com/zeromicro/go-zero/zrpc/resolver"
@@ -36,6 +37,7 @@ type (
 		Timeout     time.Duration
 		Secure      bool
 		DialOptions []grpc.DialOption
+		Metadata    md.Metadata
 	}
 
 	// ClientOption defines the method to customize a ClientOptions.
@@ -86,9 +88,11 @@ func (c *client) buildDialOptions(opts ...ClientOption) []grpc.DialOption {
 			clientinterceptors.PrometheusInterceptor,
 			clientinterceptors.BreakerInterceptor,
 			clientinterceptors.TimeoutInterceptor(cliOpts.Timeout),
+			clientinterceptors.UnaryMdInterceptor(cliOpts.Metadata),
 		),
 		WithStreamClientInterceptors(
 			clientinterceptors.StreamTracingInterceptor,
+			clientinterceptors.StreamMdInterceptor(cliOpts.Metadata),
 		),
 	)
 
@@ -157,5 +161,17 @@ func WithTransportCredentials(creds credentials.TransportCredentials) ClientOpti
 func WithUnaryClientInterceptor(interceptor grpc.UnaryClientInterceptor) ClientOption {
 	return func(options *ClientOptions) {
 		options.DialOptions = append(options.DialOptions, WithUnaryClientInterceptors(interceptor))
+	}
+}
+
+func WithClientMetadata(metadata md.Metadata) ClientOption {
+	return func(options *ClientOptions) {
+		m := md.Metadata{}
+		metadata.Range(func(key string, values ...string) bool {
+			m.Set(strings.ToLower(key), values...)
+			return true
+		})
+
+		options.Metadata = m
 	}
 }
