@@ -22,8 +22,7 @@ type (
 	}
 
 	rpcServer struct {
-		name     string
-		metadata md.Metadata
+		name string
 		*baseRpcServer
 	}
 )
