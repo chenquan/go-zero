@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc/attributes"
 )
 
@@ -69,6 +70,7 @@ func MetadataFromGrpcAttributes(attributes *attributes.Attributes) (Metadata, bo
 	m := Metadata{}
 	err := json.Unmarshal([]byte(value.(string)), &m)
 	if err != nil {
+		logx.Errorf("parsing metadata err:%s, data:%s", err, value.(string))
 		return nil, false
 	}
 

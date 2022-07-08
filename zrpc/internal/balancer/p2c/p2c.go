@@ -1,7 +1,6 @@
 package p2c
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
@@ -55,13 +54,9 @@ func (b *p2cPickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 	var conns []*subConn
 	for conn, connInfo := range readySCs {
 		addr := connInfo.Address
-		var metadata md.Metadata
-		metadataVal := addr.BalancerAttributes.Value("metadata")
-		if metadataVal != nil {
-			err := json.Unmarshal([]byte(metadataVal.(string)), &metadata)
-			if err != nil {
-				logx.Errorf("parsing metadata err:%s, data:%s", err, metadataVal.(string))
-			}
+		metadata, ok := md.MetadataFromGrpcAttributes(addr.BalancerAttributes)
+		if !ok {
+			metadata = md.Metadata{}
 		}
 
 		conns = append(conns, &subConn{
