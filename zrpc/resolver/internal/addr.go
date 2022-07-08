@@ -23,8 +23,8 @@ func parserAddr(sub *discov.Subscriber) ([]resolver.Address, error) {
 		}
 
 		addrs = append(addrs, resolver.Address{
-			Addr:       addr,
-			Attributes: attr,
+			Addr:               addr,
+			BalancerAttributes: attr,
 		})
 	}
 

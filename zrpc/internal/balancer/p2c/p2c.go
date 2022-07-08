@@ -56,7 +56,7 @@ func (b *p2cPickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 	for conn, connInfo := range readySCs {
 		addr := connInfo.Address
 		var metadata md.Metadata
-		metadataVal := addr.Attributes.Value("metadata")
+		metadataVal := addr.BalancerAttributes.Value("metadata")
 		if metadataVal != nil {
 			err := json.Unmarshal([]byte(metadataVal.(string)), &metadata)
 			if err != nil {
