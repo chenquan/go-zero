@@ -67,18 +67,19 @@ func NewSelectorContext(ctx context.Context, selectorName string) context.Contex
 	if !b {
 		m = md.Metadata{}
 	}
+
 	m.Set(trafficSelect, selectorName)
 
 	return md.NewMetadataContext(ctx, m)
 }
 
 func AppendSelectorContext(ctx context.Context, selectorName string) context.Context {
-	OutgoingMd, b := metadata.FromOutgoingContext(ctx)
+	outgoingMd, b := metadata.FromOutgoingContext(ctx)
 	if b {
-		OutgoingMd.Append(trafficSelect, selectorName)
+		outgoingMd.Append(trafficSelect, selectorName)
 	} else {
-		OutgoingMd = metadata.New(map[string]string{trafficSelect: selectorName})
+		outgoingMd = metadata.New(map[string]string{trafficSelect: selectorName})
 	}
 
-	return metadata.NewOutgoingContext(ctx, OutgoingMd)
+	return metadata.NewOutgoingContext(ctx, outgoingMd)
 }

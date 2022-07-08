@@ -3,7 +3,6 @@ package md
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"strings"
 
 	"google.golang.org/grpc/attributes"
@@ -69,24 +68,6 @@ func (m *Metadata) Parser(v string) error {
 	}
 
 	return nil
-}
-
-func (m Metadata) String() string {
-	b, err := json.Marshal(m)
-	if err != nil {
-		return ""
-	}
-
-	return string(b)
-}
-
-func (m Metadata) MustString() string {
-	b, err := json.Marshal(m)
-	if err != nil {
-		log.Panicln(err)
-	}
-
-	return string(b)
 }
 
 func (m Metadata) Range(f func(key string, values ...string) bool) {

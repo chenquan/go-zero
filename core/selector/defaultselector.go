@@ -8,6 +8,8 @@ import (
 	"google.golang.org/grpc/balancer"
 )
 
+const DefaultSelector = "defaultSelector"
+
 var _ Selector = (*defaultSelector)(nil)
 
 func init() {
@@ -19,23 +21,23 @@ type defaultSelector struct{}
 func (d defaultSelector) Select(conns []Conn, info balancer.PickInfo) []Conn {
 	m, ok := md.FromContext(info.Ctx)
 	if !ok {
-		return nil
+		return d.getNoColorConns(conns)
 	}
 
 	clientColors := m.Get("color")
 	if len(clientColors) == 0 {
-		return nil
+		return d.getNoColorConns(conns)
 	}
 
 	newConns := make([]Conn, 0, len(conns))
 	sort.Strings(clientColors)
 	for i := len(clientColors) - 1; i >= 0; i-- {
-		color := clientColors[i]
+		clientColor := clientColors[i]
 		for _, conn := range conns {
 			metadataFromGrpcAttributes := conn.Metadata()
 			colors := metadataFromGrpcAttributes.Get("color")
-			for _, c := range colors {
-				if color == c {
+			for _, color := range colors {
+				if clientColor == color {
 					newConns = append(newConns, conn)
 				}
 			}
@@ -43,7 +45,7 @@ func (d defaultSelector) Select(conns []Conn, info balancer.PickInfo) []Conn {
 
 		if len(newConns) != 0 {
 			spanCtx := trace.SpanFromContext(info.Ctx)
-			spanCtx.SetAttributes(ColorAttributeKey.String(color))
+			spanCtx.SetAttributes(ColorAttributeKey.String(clientColor))
 			break
 		}
 	}
@@ -52,5 +54,18 @@ func (d defaultSelector) Select(conns []Conn, info balancer.PickInfo) []Conn {
 }
 
 func (d defaultSelector) Name() string {
-	return "defaultSelector"
+	return DefaultSelector
+}
+
+func (d defaultSelector) getNoColorConns(conns []Conn) []Conn {
+	var newConns []Conn
+	for _, conn := range conns {
+		metadataFromGrpcAttributes := conn.Metadata()
+		colors := metadataFromGrpcAttributes.Get("color")
+		if len(colors) == 0 {
+			newConns = append(newConns, conn)
+		}
+	}
+
+	return newConns
 }

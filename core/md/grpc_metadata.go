@@ -14,6 +14,7 @@ func (h GrpcMetadataCarrier) Append(key string, values ...string) {
 	if len(values) == 0 {
 		return
 	}
+
 	key = strings.ToLower(key)
 	h[key] = append(h[key], values...)
 }

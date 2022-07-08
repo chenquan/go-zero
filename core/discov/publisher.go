@@ -1,6 +1,8 @@
 package discov
 
 import (
+	"encoding/json"
+
 	"github.com/zeromicro/go-zero/core/discov/internal"
 	"github.com/zeromicro/go-zero/core/lang"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -139,7 +141,12 @@ func (p *Publisher) register(client internal.EtcdClient) (clientv3.LeaseID, erro
 
 	value := p.value
 	if p.metadata != nil {
-		value = value + "@" + p.metadata.MustString()
+		bytes, err := json.Marshal(p.metadata)
+		if err != nil {
+			return clientv3.NoLease, err
+		}
+
+		value = value + "@" + string(bytes)
 	}
 	_, err = client.Put(client.Ctx(), p.fullKey, value, clientv3.WithLease(lease))
 
