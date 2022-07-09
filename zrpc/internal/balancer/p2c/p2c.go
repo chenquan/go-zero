@@ -54,10 +54,7 @@ func (b *p2cPickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 	var conns []*subConn
 	for conn, connInfo := range readySCs {
 		addr := connInfo.Address
-		metadata, ok := md.MetadataFromGrpcAttributes(addr.BalancerAttributes)
-		if !ok {
-			metadata = md.Metadata{}
-		}
+		metadata, _ := md.MetadataFromGrpcAttributes(addr.BalancerAttributes)
 
 		conns = append(conns, &subConn{
 			addr:     addr,
