@@ -52,6 +52,11 @@ func (m Metadata) Get(key string) []string {
 	return m[key]
 }
 
+func (m Metadata) Delete(k string) {
+	k = strings.ToLower(k)
+	delete(m, k)
+}
+
 func FromContext(ctx context.Context) (Metadata, bool) {
 	value := ctx.Value(metadataKey{})
 	if value == nil {
