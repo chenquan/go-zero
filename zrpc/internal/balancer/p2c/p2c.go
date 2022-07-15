@@ -11,10 +11,10 @@ import (
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/md"
-	"github.com/zeromicro/go-zero/core/selector"
 	"github.com/zeromicro/go-zero/core/syncx"
 	"github.com/zeromicro/go-zero/core/timex"
 	"github.com/zeromicro/go-zero/zrpc/internal/codes"
+	"github.com/zeromicro/go-zero/zrpc/selector"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/balancer"
@@ -51,6 +51,7 @@ func (b *p2cPickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 	if len(readySCs) == 0 {
 		return base.NewErrPicker(balancer.ErrNoSubConnAvailable)
 	}
+
 	var conns []*subConn
 	for conn, connInfo := range readySCs {
 		addr := connInfo.Address
@@ -100,6 +101,12 @@ func (p *p2cPicker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 
 			spanCtx := trace.SpanFromContext(info.Ctx)
 			spanCtx.SetAttributes(selectorAttributeKey.String(slc.Name()))
+			selectorNames := make([]string, 0, len(selectors))
+			for _, s := range selectors {
+				selectorNames = append(selectorNames, s.Name())
+			}
+			logx.WithContext(info.Ctx).Infow("flow dyeing", logx.Field("selector", slc.Name()), logx.Field("candidateSelectors", "["+strings.Join(selectorNames, ", ")+"]"))
+
 			break
 		}
 	}

@@ -63,7 +63,7 @@ func FromContext(ctx context.Context) (Metadata, bool) {
 
 func MetadataFromGrpcAttributes(attributes *attributes.Attributes) (Metadata, bool) {
 	value := attributes.Value("metadata")
-	if value != nil {
+	if value == nil {
 		return nil, false
 	}
 

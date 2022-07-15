@@ -2,7 +2,9 @@ package selector
 
 import (
 	"sort"
+	"strings"
 
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/md"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/balancer"
@@ -46,6 +48,8 @@ func (d defaultSelector) Select(conns []Conn, info balancer.PickInfo) []Conn {
 		if len(newConns) != 0 {
 			spanCtx := trace.SpanFromContext(info.Ctx)
 			spanCtx.SetAttributes(ColorAttributeKey.String(clientColor))
+			logx.WithContext(info.Ctx).Infow("flow dyeing", logx.Field("color", clientColor), logx.Field("candidateColors", "["+strings.Join(clientColors, ", ")+"]"))
+
 			break
 		}
 	}

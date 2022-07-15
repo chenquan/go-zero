@@ -16,9 +16,7 @@ func parserAddr(sub *discov.Subscriber) ([]resolver.Address, error) {
 		var attr *attributes.Attributes
 		addr := val
 		if len(valSplit) == 2 {
-
 			attr = attr.WithValue("metadata", valSplit[1])
-
 			addr = valSplit[0]
 		}
 
