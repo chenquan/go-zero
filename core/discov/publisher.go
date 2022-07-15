@@ -141,12 +141,11 @@ func (p *Publisher) register(client internal.EtcdClient) (clientv3.LeaseID, erro
 
 	value := p.value
 	if p.metadata != nil {
-		bytes, err := json.Marshal(p.metadata)
-		if err != nil {
-			return clientv3.NoLease, err
+		if bytes, err := json.Marshal(p.metadata); err == nil {
+			value = value + "@" + string(bytes)
+		} else {
+			logx.Errorw("metadata serialization failed", logx.Field("error", err))
 		}
-
-		value = value + "@" + string(bytes)
 	}
 	_, err = client.Put(client.Ctx(), p.fullKey, value, clientv3.WithLease(lease))
 

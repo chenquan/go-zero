@@ -11,7 +11,6 @@ import (
 func UnaryMdInterceptor(defaultMd md.Metadata) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		ctx = injectionMd(ctx, defaultMd)
-
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
@@ -19,7 +18,6 @@ func UnaryMdInterceptor(defaultMd md.Metadata) grpc.UnaryClientInterceptor {
 func StreamMdInterceptor(defaultMd md.Metadata) grpc.StreamClientInterceptor {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 		ctx = injectionMd(ctx, defaultMd)
-
 		return streamer(ctx, desc, cc, method, opts...)
 	}
 }

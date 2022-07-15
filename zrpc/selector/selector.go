@@ -6,7 +6,6 @@ import (
 	"github.com/zeromicro/go-zero/core/md"
 	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc/balancer"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/resolver"
 )
 
@@ -74,12 +73,17 @@ func NewSelectorContext(ctx context.Context, selectorName string) context.Contex
 }
 
 func AppendSelectorContext(ctx context.Context, selectorName string) context.Context {
-	outgoingMd, b := metadata.FromOutgoingContext(ctx)
-	if b {
-		outgoingMd.Append(trafficSelect, selectorName)
-	} else {
-		outgoingMd = metadata.New(map[string]string{trafficSelect: selectorName})
+	m, b := md.FromContext(ctx)
+	if !b {
+		m = md.Metadata{}
 	}
+	m.Append(trafficSelect, selectorName)
 
-	return metadata.NewOutgoingContext(ctx, outgoingMd)
+	return md.NewContext(ctx, m)
+}
+
+func NewSelectorMetadata(selectorName string) md.Metadata {
+	m := md.Metadata{}
+	m.Set(trafficSelect, selectorName)
+	return m
 }

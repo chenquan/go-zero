@@ -12,7 +12,10 @@ import (
 
 const DefaultSelector = "defaultSelector"
 
-var _ Selector = (*defaultSelector)(nil)
+var (
+	_                 Selector = (*defaultSelector)(nil)
+	DefaultSelectorMd          = NewSelectorMetadata(DefaultSelector)
+)
 
 func init() {
 	Register(defaultSelector{})
@@ -38,6 +41,12 @@ func (d defaultSelector) Select(conns []Conn, info balancer.PickInfo) []Conn {
 		for _, conn := range conns {
 			metadataFromGrpcAttributes := conn.Metadata()
 			colors := metadataFromGrpcAttributes.Get("color")
+
+			if len(colors) == 0 {
+				newConns = append(newConns, conn)
+				continue
+			}
+
 			for _, color := range colors {
 				if clientColor == color {
 					newConns = append(newConns, conn)

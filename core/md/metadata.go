@@ -36,6 +36,7 @@ func (m Metadata) Keys() []string {
 
 func (m Metadata) Range(f func(key string, values ...string) bool) {
 	for key, value := range m {
+		key := strings.ToLower(key)
 		if !f(key, value...) {
 			break
 		}
@@ -52,9 +53,30 @@ func (m Metadata) Get(key string) []string {
 	return m[key]
 }
 
-func (m Metadata) Delete(k string) {
-	k = strings.ToLower(k)
-	delete(m, k)
+func (m Metadata) Delete(key string) {
+	key = strings.ToLower(key)
+	delete(m, key)
+}
+
+func (m Metadata) String() string {
+	builder := strings.Builder{}
+	builder.WriteRune('{')
+	for k, values := range m {
+		builder.WriteString(k)
+		builder.WriteRune('=')
+		builder.WriteRune('[')
+		if len(values) != 0 {
+			builder.WriteString(values[0])
+			for _, value := range values[1:] {
+				builder.WriteString(", ")
+				builder.WriteString(value)
+			}
+		}
+
+		builder.WriteRune(']')
+	}
+	builder.WriteRune('}')
+	return builder.String()
 }
 
 func FromContext(ctx context.Context) (Metadata, bool) {
@@ -64,22 +86,6 @@ func FromContext(ctx context.Context) (Metadata, bool) {
 	}
 
 	return value.(Metadata), true
-}
-
-func MetadataFromGrpcAttributes(attributes *attributes.Attributes) (Metadata, bool) {
-	value := attributes.Value("metadata")
-	if value == nil {
-		return nil, false
-	}
-
-	m := Metadata{}
-	err := json.Unmarshal([]byte(value.(string)), &m)
-	if err != nil {
-		logx.Errorf("parsing metadata err:%s, data:%s", err, value.(string))
-		return nil, false
-	}
-
-	return m, true
 }
 
 func NewContext(ctx context.Context, carrier Carrier) context.Context {
@@ -103,4 +109,20 @@ func NewMetaDataFromContext(ctx context.Context, carrier Carrier) (context.Conte
 	}
 
 	return context.WithValue(ctx, metadataKey{}, metadata), metadata
+}
+
+func MetadataFromGrpcAttributes(attributes *attributes.Attributes) (Metadata, bool) {
+	value := attributes.Value("metadata")
+	if value == nil {
+		return nil, false
+	}
+
+	m := Metadata{}
+	err := json.Unmarshal([]byte(value.(string)), &m)
+	if err != nil {
+		logx.Errorf("parsing metadata err:%s, data:%s", err, value.(string))
+		return nil, false
+	}
+
+	return m, true
 }
