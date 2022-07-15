@@ -77,11 +77,25 @@ func MetadataFromGrpcAttributes(attributes *attributes.Attributes) (Metadata, bo
 	return m, true
 }
 
-func NewMetadataContext(ctx context.Context, carrier Carrier) context.Context {
+func NewContext(ctx context.Context, carrier Carrier) context.Context {
 	md := Metadata{}
 	for _, k := range carrier.Keys() {
 		md[k] = carrier.Get(k)
 	}
 
 	return context.WithValue(ctx, metadataKey{}, md)
+}
+
+func NewMetaDataFromContext(ctx context.Context, carrier Carrier) (context.Context, Metadata) {
+	metadata, ok := FromContext(ctx)
+	if !ok {
+		metadata = Metadata{}
+	}
+
+	for _, key := range carrier.Keys() {
+		key := strings.ToLower(key)
+		metadata.Append(key, carrier.Get(key)...)
+	}
+
+	return context.WithValue(ctx, metadataKey{}, metadata), metadata
 }

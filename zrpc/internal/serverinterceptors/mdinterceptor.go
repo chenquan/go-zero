@@ -25,7 +25,7 @@ func StreamMdInterceptor(svr interface{}, ss grpc.ServerStream, _ *grpc.StreamSe
 func extractMd(ctx context.Context) context.Context {
 	incomingMd, b := metadata.FromIncomingContext(ctx)
 	if b {
-		ctx = md.NewMetadataContext(ctx, md.GrpcMetadataCarrier(incomingMd))
+		ctx = md.NewContext(ctx, md.GrpcMetadataCarrier(incomingMd))
 	}
 
 	return ctx

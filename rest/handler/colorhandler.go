@@ -10,24 +10,18 @@ import (
 
 var httpColorAttributeKey = attribute.Key("http.header.color")
 
-func MdHandler(next http.Handler) http.Handler {
+func ColorHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		ctx := request.Context()
+
 		colors := request.Header.Values("color")
 		if len(colors) != 0 {
-			ctx := request.Context()
-			metadata, ok := md.FromContext(ctx)
-			if !ok {
-				metadata = md.Metadata{}
-			}
-
-			span := trace.SpanFromContext(ctx)
-			span.SetAttributes(httpColorAttributeKey.StringSlice(colors))
-
-			metadata.Append("color", colors...)
-			ctx = md.NewMetadataContext(ctx, metadata)
+			ctx, _ = md.NewMetaDataFromContext(ctx, md.Metadata{"color": colors})
 			request = request.WithContext(ctx)
 		}
 
+		span := trace.SpanFromContext(ctx)
+		span.SetAttributes(httpColorAttributeKey.StringSlice(colors))
 		next.ServeHTTP(writer, request)
 	})
 }

@@ -70,7 +70,7 @@ func NewSelectorContext(ctx context.Context, selectorName string) context.Contex
 
 	m.Set(trafficSelect, selectorName)
 
-	return md.NewMetadataContext(ctx, m)
+	return md.NewContext(ctx, m)
 }
 
 func AppendSelectorContext(ctx context.Context, selectorName string) context.Context {

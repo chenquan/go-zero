@@ -25,20 +25,11 @@ func StreamMdInterceptor(defaultMd md.Metadata) grpc.StreamClientInterceptor {
 }
 
 func injectionMd(ctx context.Context, defaultMd md.Metadata) context.Context {
-	m, b := md.FromContext(ctx)
-	if !b {
-		m = md.Metadata{}
-	}
-
-	defaultMd.Range(func(key string, values ...string) bool {
-		m.Append(key, values...)
-		return true
-	})
-	ctx = md.NewMetadataContext(ctx, m)
+	ctx, m := md.NewMetaDataFromContext(ctx, defaultMd)
 
 	outgoingMd, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
-		return ctx
+		outgoingMd = metadata.MD{}
 	}
 
 	m.Range(func(key string, values ...string) bool {
@@ -48,4 +39,7 @@ func injectionMd(ctx context.Context, defaultMd md.Metadata) context.Context {
 	ctx = metadata.NewOutgoingContext(ctx, outgoingMd)
 
 	return ctx
+}
+
+func mergeMd() {
 }
