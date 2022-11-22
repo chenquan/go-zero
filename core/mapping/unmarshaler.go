@@ -1,16 +1,19 @@
 package mapping
 
 import (
+	"encoding"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/zeromicro/go-zero/core/jsonx"
 	"github.com/zeromicro/go-zero/core/lang"
+	"github.com/zeromicro/go-zero/core/proc"
 	"github.com/zeromicro/go-zero/core/stringx"
 )
 
@@ -25,9 +28,9 @@ var (
 	errValueNotStruct   = errors.New("value type is not struct")
 	keyUnmarshaler      = NewUnmarshaler(defaultKeyName)
 	durationType        = reflect.TypeOf(time.Duration(0))
-	cacheKeys           map[string][]string
+	cacheKeys           = make(map[string][]string)
 	cacheKeysLock       sync.Mutex
-	defaultCache        map[string]interface{}
+	defaultCache        = make(map[string]interface{})
 	defaultCacheLock    sync.Mutex
 	emptyMap            = map[string]interface{}{}
 	emptyValue          = reflect.ValueOf(lang.Placeholder)
@@ -40,7 +43,7 @@ type (
 		opts unmarshalOptions
 	}
 
-	// UnmarshalOption defines the method to customize a Unmarshaler.
+	// UnmarshalOption defines the method to customize an Unmarshaler.
 	UnmarshalOption func(*unmarshalOptions)
 
 	unmarshalOptions struct {
@@ -49,12 +52,7 @@ type (
 	}
 )
 
-func init() {
-	cacheKeys = make(map[string][]string)
-	defaultCache = make(map[string]interface{})
-}
-
-// NewUnmarshaler returns a Unmarshaler.
+// NewUnmarshaler returns an Unmarshaler.
 func NewUnmarshaler(key string, opts ...UnmarshalOption) *Unmarshaler {
 	unmarshaler := Unmarshaler{
 		key: key,
@@ -74,15 +72,15 @@ func UnmarshalKey(m map[string]interface{}, v interface{}) error {
 
 // Unmarshal unmarshals m into v.
 func (u *Unmarshaler) Unmarshal(m map[string]interface{}, v interface{}) error {
-	return u.UnmarshalValuer(MapValuer(m), v)
+	return u.UnmarshalValuer(mapValuer(m), v)
 }
 
 // UnmarshalValuer unmarshals m into v.
 func (u *Unmarshaler) UnmarshalValuer(m Valuer, v interface{}) error {
-	return u.unmarshalWithFullName(m, v, "")
+	return u.unmarshalWithFullName(simpleValuer{current: m}, v, "")
 }
 
-func (u *Unmarshaler) unmarshalWithFullName(m Valuer, v interface{}, fullName string) error {
+func (u *Unmarshaler) unmarshalWithFullName(m valuerWithParent, v interface{}, fullName string) error {
 	rv := reflect.ValueOf(v)
 	if err := ValidatePtr(&rv); err != nil {
 		return err
@@ -96,8 +94,7 @@ func (u *Unmarshaler) unmarshalWithFullName(m Valuer, v interface{}, fullName st
 	rve := rv.Elem()
 	numFields := rte.NumField()
 	for i := 0; i < numFields; i++ {
-		field := rte.Field(i)
-		if err := u.processField(field, rve.Field(i), m, fullName); err != nil {
+		if err := u.processField(rte.Field(i), rve.Field(i), m, fullName); err != nil {
 			return err
 		}
 	}
@@ -106,7 +103,7 @@ func (u *Unmarshaler) unmarshalWithFullName(m Valuer, v interface{}, fullName st
 }
 
 func (u *Unmarshaler) processAnonymousField(field reflect.StructField, value reflect.Value,
-	m Valuer, fullName string) error {
+	m valuerWithParent, fullName string) error {
 	key, options, err := u.parseOptionsWithContext(field, m, fullName)
 	if err != nil {
 		return err
@@ -124,7 +121,7 @@ func (u *Unmarshaler) processAnonymousField(field reflect.StructField, value ref
 }
 
 func (u *Unmarshaler) processAnonymousFieldOptional(field reflect.StructField, value reflect.Value,
-	key string, m Valuer, fullName string) error {
+	key string, m valuerWithParent, fullName string) error {
 	var filled bool
 	var required int
 	var requiredFilled int
@@ -144,7 +141,6 @@ func (u *Unmarshaler) processAnonymousFieldOptional(field reflect.StructField, v
 				filled = true
 				maybeNewValue(field, value)
 				indirectValue = reflect.Indirect(value)
-
 			}
 			if err = u.processField(subField, indirectValue.Field(i), m, fullName); err != nil {
 				return err
@@ -166,7 +162,7 @@ func (u *Unmarshaler) processAnonymousFieldOptional(field reflect.StructField, v
 }
 
 func (u *Unmarshaler) processAnonymousFieldRequired(field reflect.StructField, value reflect.Value,
-	m Valuer, fullName string) error {
+	m valuerWithParent, fullName string) error {
 	maybeNewValue(field, value)
 	fieldType := Deref(field.Type)
 	indirectValue := reflect.Indirect(value)
@@ -180,8 +176,8 @@ func (u *Unmarshaler) processAnonymousFieldRequired(field reflect.StructField, v
 	return nil
 }
 
-func (u *Unmarshaler) processField(field reflect.StructField, value reflect.Value, m Valuer,
-	fullName string) error {
+func (u *Unmarshaler) processField(field reflect.StructField, value reflect.Value,
+	m valuerWithParent, fullName string) error {
 	if usingDifferentKeys(u.key, field) {
 		return nil
 	}
@@ -194,17 +190,27 @@ func (u *Unmarshaler) processField(field reflect.StructField, value reflect.Valu
 }
 
 func (u *Unmarshaler) processFieldNotFromString(field reflect.StructField, value reflect.Value,
-	mapValue interface{}, opts *fieldOptionsWithContext, fullName string) error {
+	vp valueWithParent, opts *fieldOptionsWithContext, fullName string) error {
 	fieldType := field.Type
 	derefedFieldType := Deref(fieldType)
 	typeKind := derefedFieldType.Kind()
-	valueKind := reflect.TypeOf(mapValue).Kind()
+	valueKind := reflect.TypeOf(vp.value).Kind()
+	mapValue := vp.value
 
 	switch {
 	case valueKind == reflect.Map && typeKind == reflect.Struct:
-		return u.processFieldStruct(field, value, mapValue, fullName)
+		if mv, ok := mapValue.(map[string]interface{}); ok {
+			return u.processFieldStruct(field, value, &simpleValuer{
+				current: mapValuer(mv),
+				parent:  vp.parent,
+			}, fullName)
+		} else {
+			return errTypeMismatch
+		}
 	case valueKind == reflect.Map && typeKind == reflect.Map:
 		return u.fillMap(field, value, mapValue)
+	case valueKind == reflect.String && typeKind == reflect.Map:
+		return u.fillMapFromString(value, mapValue)
 	case valueKind == reflect.String && typeKind == reflect.Slice:
 		return u.fillSliceFromString(fieldType, value, mapValue)
 	case valueKind == reflect.String && derefedFieldType == durationType:
@@ -295,18 +301,7 @@ func (u *Unmarshaler) processFieldPrimitiveWithJSONNumber(field reflect.StructFi
 }
 
 func (u *Unmarshaler) processFieldStruct(field reflect.StructField, value reflect.Value,
-	mapValue interface{}, fullName string) error {
-	convertedValue, ok := mapValue.(map[string]interface{})
-	if !ok {
-		valueKind := reflect.TypeOf(mapValue).Kind()
-		return fmt.Errorf("error: field: %s, expect map[string]interface{}, actual %v", fullName, valueKind)
-	}
-
-	return u.processFieldStructWithMap(field, value, MapValuer(convertedValue), fullName)
-}
-
-func (u *Unmarshaler) processFieldStructWithMap(field reflect.StructField, value reflect.Value,
-	m Valuer, fullName string) error {
+	m valuerWithParent, fullName string) error {
 	if field.Type.Kind() == reflect.Ptr {
 		baseType := Deref(field.Type)
 		target := reflect.New(baseType).Elem()
@@ -322,28 +317,93 @@ func (u *Unmarshaler) processFieldStructWithMap(field reflect.StructField, value
 	return nil
 }
 
+func (u *Unmarshaler) processFieldTextUnmarshaler(field reflect.StructField, value reflect.Value,
+	mapValue interface{}) (bool, error) {
+	var tval encoding.TextUnmarshaler
+	var ok bool
+
+	if field.Type.Kind() == reflect.Ptr {
+		tval, ok = value.Interface().(encoding.TextUnmarshaler)
+	} else {
+		tval, ok = value.Addr().Interface().(encoding.TextUnmarshaler)
+	}
+	if ok {
+		switch mv := mapValue.(type) {
+		case string:
+			return true, tval.UnmarshalText([]byte(mv))
+		case []byte:
+			return true, tval.UnmarshalText(mv)
+		}
+	}
+
+	return false, nil
+}
+
+func (u *Unmarshaler) processFieldWithEnvValue(field reflect.StructField, value reflect.Value,
+	envVal string, opts *fieldOptionsWithContext, fullName string) error {
+	if err := validateValueInOptions(envVal, opts.options()); err != nil {
+		return err
+	}
+
+	fieldKind := field.Type.Kind()
+	switch fieldKind {
+	case reflect.Bool:
+		val, err := strconv.ParseBool(envVal)
+		if err != nil {
+			return fmt.Errorf("unmarshal field %q with environment variable, %w", fullName, err)
+		}
+
+		value.SetBool(val)
+		return nil
+	case durationType.Kind():
+		if err := fillDurationValue(fieldKind, value, envVal); err != nil {
+			return fmt.Errorf("unmarshal field %q with environment variable, %w", fullName, err)
+		}
+
+		return nil
+	case reflect.String:
+		value.SetString(envVal)
+		return nil
+	default:
+		return u.processFieldPrimitiveWithJSONNumber(field, value, json.Number(envVal), opts, fullName)
+	}
+}
+
 func (u *Unmarshaler) processNamedField(field reflect.StructField, value reflect.Value,
-	m Valuer, fullName string) error {
+	m valuerWithParent, fullName string) error {
 	key, opts, err := u.parseOptionsWithContext(field, m, fullName)
 	if err != nil {
 		return err
 	}
 
 	fullName = join(fullName, key)
+	if opts != nil && len(opts.EnvVar) > 0 {
+		envVal := proc.Env(opts.EnvVar)
+		if len(envVal) > 0 {
+			return u.processFieldWithEnvValue(field, value, envVal, opts, fullName)
+		}
+	}
+
 	canonicalKey := key
 	if u.opts.canonicalKey != nil {
 		canonicalKey = u.opts.canonicalKey(key)
 	}
-	mapValue, hasValue := getValue(m, canonicalKey)
-	if hasValue {
-		return u.processNamedFieldWithValue(field, value, mapValue, key, opts, fullName)
+
+	valuer := createValuer(m, opts)
+	mapValue, hasValue := getValue(valuer, canonicalKey)
+	if !hasValue {
+		return u.processNamedFieldWithoutValue(field, value, opts, fullName)
 	}
 
-	return u.processNamedFieldWithoutValue(field, value, opts, fullName)
+	return u.processNamedFieldWithValue(field, value, valueWithParent{
+		value:  mapValue,
+		parent: valuer,
+	}, key, opts, fullName)
 }
 
 func (u *Unmarshaler) processNamedFieldWithValue(field reflect.StructField, value reflect.Value,
-	mapValue interface{}, key string, opts *fieldOptionsWithContext, fullName string) error {
+	vp valueWithParent, key string, opts *fieldOptionsWithContext, fullName string) error {
+	mapValue := vp.value
 	if mapValue == nil {
 		if opts.optional() {
 			return nil
@@ -352,12 +412,20 @@ func (u *Unmarshaler) processNamedFieldWithValue(field reflect.StructField, valu
 		return fmt.Errorf("field %s mustn't be nil", key)
 	}
 
+	if !value.CanSet() {
+		return fmt.Errorf("field %s is not settable", key)
+	}
+
 	maybeNewValue(field, value)
+
+	if yes, err := u.processFieldTextUnmarshaler(field, value, mapValue); yes {
+		return err
+	}
 
 	fieldKind := Deref(field.Type).Kind()
 	switch fieldKind {
 	case reflect.Array, reflect.Map, reflect.Slice, reflect.Struct:
-		return u.processFieldNotFromString(field, value, mapValue, opts, fullName)
+		return u.processFieldNotFromString(field, value, vp, opts, fullName)
 	default:
 		if u.opts.fromString || opts.fromString() {
 			valueKind := reflect.TypeOf(mapValue).Kind()
@@ -376,7 +444,7 @@ func (u *Unmarshaler) processNamedFieldWithValue(field reflect.StructField, valu
 			return fillPrimitive(field.Type, value, mapValue, opts, fullName)
 		}
 
-		return u.processFieldNotFromString(field, value, mapValue, opts, fullName)
+		return u.processFieldNotFromString(field, value, vp, opts, fullName)
 	}
 }
 
@@ -404,7 +472,9 @@ func (u *Unmarshaler) processNamedFieldWithoutValue(field reflect.StructField, v
 	switch fieldKind {
 	case reflect.Array, reflect.Map, reflect.Slice:
 		if !opts.optional() {
-			return u.processFieldNotFromString(field, value, emptyMap, opts, fullName)
+			return u.processFieldNotFromString(field, value, valueWithParent{
+				value: emptyMap,
+			}, opts, fullName)
 		}
 	case reflect.Struct:
 		if !opts.optional() {
@@ -412,10 +482,14 @@ func (u *Unmarshaler) processNamedFieldWithoutValue(field reflect.StructField, v
 			if err != nil {
 				return err
 			}
+
 			if required {
 				return fmt.Errorf("%q is not set", fullName)
 			}
-			return u.processFieldNotFromString(field, value, emptyMap, opts, fullName)
+
+			return u.processFieldNotFromString(field, value, valueWithParent{
+				value: emptyMap,
+			}, opts, fullName)
 		}
 	default:
 		if !opts.optional() {
@@ -439,6 +513,27 @@ func (u *Unmarshaler) fillMap(field reflect.StructField, value reflect.Value, ma
 	}
 
 	value.Set(targetValue)
+	return nil
+}
+
+func (u *Unmarshaler) fillMapFromString(value reflect.Value, mapValue interface{}) error {
+	if !value.CanSet() {
+		return errValueNotSettable
+	}
+
+	switch v := mapValue.(type) {
+	case fmt.Stringer:
+		if err := jsonx.UnmarshalFromString(v.String(), value.Addr().Interface()); err != nil {
+			return err
+		}
+	case string:
+		if err := jsonx.UnmarshalFromString(v, value.Addr().Interface()); err != nil {
+			return err
+		}
+	default:
+		return errUnsupportedType
+	}
+
 	return nil
 }
 
@@ -676,17 +771,31 @@ func (u *Unmarshaler) parseOptionsWithContext(field reflect.StructField, m Value
 	return key, optsWithContext, nil
 }
 
-// WithStringValues customizes a Unmarshaler with number values from strings.
+// WithStringValues customizes an Unmarshaler with number values from strings.
 func WithStringValues() UnmarshalOption {
 	return func(opt *unmarshalOptions) {
 		opt.fromString = true
 	}
 }
 
-// WithCanonicalKeyFunc customizes a Unmarshaler with Canonical Key func
+// WithCanonicalKeyFunc customizes an Unmarshaler with Canonical Key func
 func WithCanonicalKeyFunc(f func(string) string) UnmarshalOption {
 	return func(opt *unmarshalOptions) {
 		opt.canonicalKey = f
+	}
+}
+
+func createValuer(v valuerWithParent, opts *fieldOptionsWithContext) valuerWithParent {
+	if opts.inherit() {
+		return recursiveValuer{
+			current: v,
+			parent:  v.Parent(),
+		}
+	}
+
+	return simpleValuer{
+		current: v,
+		parent:  v.Parent(),
 	}
 }
 
@@ -757,26 +866,30 @@ func fillWithSameType(field reflect.StructField, value reflect.Value, mapValue i
 }
 
 // getValue gets the value for the specific key, the key can be in the format of parentKey.childKey
-func getValue(m Valuer, key string) (interface{}, bool) {
+func getValue(m valuerWithParent, key string) (interface{}, bool) {
 	keys := readKeys(key)
 	return getValueWithChainedKeys(m, keys)
 }
 
-func getValueWithChainedKeys(m Valuer, keys []string) (interface{}, bool) {
-	if len(keys) == 1 {
+func getValueWithChainedKeys(m valuerWithParent, keys []string) (interface{}, bool) {
+	switch len(keys) {
+	case 0:
+		return nil, false
+	case 1:
 		v, ok := m.Value(keys[0])
 		return v, ok
-	}
-
-	if len(keys) > 1 {
+	default:
 		if v, ok := m.Value(keys[0]); ok {
 			if nextm, ok := v.(map[string]interface{}); ok {
-				return getValueWithChainedKeys(MapValuer(nextm), keys[1:])
+				return getValueWithChainedKeys(recursiveValuer{
+					current: mapValuer(nextm),
+					parent:  m,
+				}, keys[1:])
 			}
 		}
-	}
 
-	return nil, false
+		return nil, false
+	}
 }
 
 func join(elem ...string) string {
