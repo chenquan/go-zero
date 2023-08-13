@@ -177,26 +177,26 @@ func (e *realSqlGuard) start(q string, args ...any) error {
 	return nil
 }
 
-var emptySqlLogOption = SqlLogOption{}
+var emptySqlLogOption = LogOption{}
 
 type (
-	SqlLogOption struct {
+	LogOption struct {
 		EnableStatement bool
 		EnableSlow      bool
 	}
-	sqlLogOptionKey struct{}
+	logOptionKey struct{}
 )
 
-// NewSqlLogOptionContext returns a context that sets the SQL statement log output configuration.
-func NewSqlLogOptionContext(ctx context.Context, sqlLogOption SqlLogOption) context.Context {
-	return context.WithValue(ctx, sqlLogOptionKey{}, sqlLogOption)
+// NewLogOptionContext returns a context that sets the SQL statement log output configuration.
+func NewLogOptionContext(ctx context.Context, logOption LogOption) context.Context {
+	return context.WithValue(ctx, logOptionKey{}, logOption)
 }
 
-func sqlLogOptionFromContext(ctx context.Context) (SqlLogOption, bool) {
-	value := ctx.Value(sqlLogOptionKey{})
+func sqlLogOptionFromContext(ctx context.Context) (LogOption, bool) {
+	value := ctx.Value(logOptionKey{})
 	if value == nil {
 		return emptySqlLogOption, false
 	}
 
-	return value.(SqlLogOption), true
+	return value.(LogOption), true
 }

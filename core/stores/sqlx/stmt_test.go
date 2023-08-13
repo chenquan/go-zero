@@ -207,7 +207,7 @@ func TestDisableStmtLog(t *testing.T) {
 func TestDisableLogContext(t *testing.T) {
 	t.Run("DisableLog", func(t *testing.T) {
 		guard := newGuard("any")
-		ctx := NewContextSqlLogOption(context.Background(), SqlLogOption{
+		ctx := NewLogOptionContext(context.Background(), LogOption{
 			EnableStatement: false,
 			EnableSlow:      false,
 		})
@@ -220,7 +220,7 @@ func TestDisableLogContext(t *testing.T) {
 		defer logStmtSql.Set(true)
 
 		guard := newGuard("any")
-		ctx := NewContextSqlLogOption(context.Background(), SqlLogOption{
+		ctx := NewLogOptionContext(context.Background(), LogOption{
 			EnableStatement: true,
 			EnableSlow:      false,
 		})
@@ -230,7 +230,7 @@ func TestDisableLogContext(t *testing.T) {
 
 	t.Run("DisableSlowLog", func(t *testing.T) {
 		guard := newGuard("any")
-		ctx := NewContextSqlLogOption(context.Background(), SqlLogOption{
+		ctx := NewLogOptionContext(context.Background(), LogOption{
 			EnableStatement: false,
 			EnableSlow:      true,
 		})
