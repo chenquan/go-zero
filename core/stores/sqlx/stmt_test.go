@@ -179,36 +179,71 @@ func TestSetSlowThreshold(t *testing.T) {
 }
 
 func TestDisableLog(t *testing.T) {
-	assert.True(t, logSql.True())
+	assert.True(t, logStmtSql.True())
 	assert.True(t, logSlowSql.True())
 	defer func() {
-		logSql.Set(true)
+		logStmtSql.Set(true)
 		logSlowSql.Set(true)
 	}()
 
 	DisableLog()
-	assert.False(t, logSql.True())
+	assert.False(t, logStmtSql.True())
 	assert.False(t, logSlowSql.True())
 }
 
 func TestDisableStmtLog(t *testing.T) {
-	assert.True(t, logSql.True())
+	assert.True(t, logStmtSql.True())
 	assert.True(t, logSlowSql.True())
 	defer func() {
-		logSql.Set(true)
+		logStmtSql.Set(true)
 		logSlowSql.Set(true)
 	}()
 
 	DisableStmtLog()
-	assert.False(t, logSql.True())
+	assert.False(t, logStmtSql.True())
 	assert.True(t, logSlowSql.True())
 }
 
+func TestDisableLogContext(t *testing.T) {
+	t.Run("DisableLog", func(t *testing.T) {
+		guard := newGuard("any")
+		ctx := NewContextSqlLogOption(context.Background(), SqlLogOption{
+			EnableStatement: false,
+			EnableSlow:      false,
+		})
+		assert.False(t, guard.(*realSqlGuard).slowLog(ctx, time.Hour))
+		assert.False(t, guard.(*realSqlGuard).statementLog(ctx))
+	})
+
+	t.Run("DisableStatementLog", func(t *testing.T) {
+		logStmtSql.Set(false)
+		defer logStmtSql.Set(true)
+
+		guard := newGuard("any")
+		ctx := NewContextSqlLogOption(context.Background(), SqlLogOption{
+			EnableStatement: true,
+			EnableSlow:      false,
+		})
+		assert.False(t, guard.(*realSqlGuard).slowLog(ctx, time.Hour))
+		assert.True(t, guard.(*realSqlGuard).statementLog(ctx))
+	})
+
+	t.Run("DisableSlowLog", func(t *testing.T) {
+		guard := newGuard("any")
+		ctx := NewContextSqlLogOption(context.Background(), SqlLogOption{
+			EnableStatement: false,
+			EnableSlow:      true,
+		})
+		assert.True(t, guard.(*realSqlGuard).slowLog(ctx, time.Hour))
+		assert.False(t, guard.(*realSqlGuard).statementLog(ctx))
+	})
+}
+
 func TestNilGuard(t *testing.T) {
-	assert.True(t, logSql.True())
+	assert.True(t, logStmtSql.True())
 	assert.True(t, logSlowSql.True())
 	defer func() {
-		logSql.Set(true)
+		logStmtSql.Set(true)
 		logSlowSql.Set(true)
 	}()
 
@@ -216,7 +251,7 @@ func TestNilGuard(t *testing.T) {
 	guard := newGuard("any")
 	assert.Nil(t, guard.start("foo", "bar"))
 	guard.finish(context.Background(), nil)
-	assert.Equal(t, nilGuard{}, guard)
+	assert.IsType(t, &nilGuard{}, guard)
 }
 
 type mockedSessionConn struct {

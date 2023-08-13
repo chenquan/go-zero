@@ -14,19 +14,19 @@ const defaultSlowThreshold = time.Millisecond * 500
 
 var (
 	slowThreshold = syncx.ForAtomicDuration(defaultSlowThreshold)
-	logSql        = syncx.ForAtomicBool(true)
+	logStmtSql    = syncx.ForAtomicBool(true)
 	logSlowSql    = syncx.ForAtomicBool(true)
 )
 
 // DisableLog disables logging of sql statements, includes info and slow logs.
 func DisableLog() {
-	logSql.Set(false)
+	logStmtSql.Set(false)
 	logSlowSql.Set(false)
 }
 
 // DisableStmtLog disables info logging of sql statements, but keeps slow logs.
 func DisableStmtLog() {
-	logSql.Set(false)
+	logStmtSql.Set(false)
 }
 
 // SetSlowThreshold sets the slow threshold.
@@ -98,7 +98,10 @@ type (
 		finish(ctx context.Context, err error)
 	}
 
-	nilGuard struct{}
+	nilGuard struct {
+		command   string
+		startTime time.Duration
+	}
 
 	realSqlGuard struct {
 		command   string
@@ -108,27 +111,32 @@ type (
 )
 
 func newGuard(command string) sqlGuard {
-	if logSql.True() || logSlowSql.True() {
+	if logStmtSql.True() || logSlowSql.True() {
 		return &realSqlGuard{
 			command: command,
 		}
 	}
 
-	return nilGuard{}
+	return &nilGuard{
+		command: command,
+	}
 }
 
-func (n nilGuard) start(_ string, _ ...any) error {
+func (n *nilGuard) start(_ string, _ ...any) error {
+	n.startTime = timex.Now()
 	return nil
 }
 
-func (n nilGuard) finish(_ context.Context, _ error) {
+func (n *nilGuard) finish(_ context.Context, _ error) {
+	duration := timex.Since(n.startTime)
+	metricReqDur.Observe(duration.Milliseconds(), n.command)
 }
 
 func (e *realSqlGuard) finish(ctx context.Context, err error) {
 	duration := timex.Since(e.startTime)
-	if duration > slowThreshold.Load() {
+	if e.slowLog(ctx, duration) {
 		logx.WithContext(ctx).WithDuration(duration).Slowf("[SQL] %s: slowcall - %s", e.command, e.stmt)
-	} else if logSql.True() {
+	} else if e.statementLog(ctx) {
 		logx.WithContext(ctx).WithDuration(duration).Infof("sql %s: %s", e.command, e.stmt)
 	}
 
@@ -137,6 +145,24 @@ func (e *realSqlGuard) finish(ctx context.Context, err error) {
 	}
 
 	metricReqDur.Observe(duration.Milliseconds(), e.command)
+}
+
+func (e *realSqlGuard) slowLog(ctx context.Context, duration time.Duration) bool {
+	sqlLogOpt, ok := sqlLogOptionFromContext(ctx)
+	if ok {
+		return duration > slowThreshold.Load() && sqlLogOpt.EnableSlow
+	}
+
+	return duration > slowThreshold.Load() && logSlowSql.True()
+}
+
+func (e *realSqlGuard) statementLog(ctx context.Context) bool {
+	sqlLogOpt, ok := sqlLogOptionFromContext(ctx)
+	if ok {
+		return sqlLogOpt.EnableStatement
+	}
+
+	return logStmtSql.True()
 }
 
 func (e *realSqlGuard) start(q string, args ...any) error {
@@ -149,4 +175,28 @@ func (e *realSqlGuard) start(q string, args ...any) error {
 	e.startTime = timex.Now()
 
 	return nil
+}
+
+var emptySqlLogOption = SqlLogOption{}
+
+type (
+	SqlLogOption struct {
+		EnableStatement bool
+		EnableSlow      bool
+	}
+	sqlLogOptionKey struct{}
+)
+
+// NewSqlLogOptionContext returns a context that sets the SQL statement log output configuration.
+func NewSqlLogOptionContext(ctx context.Context, sqlLogOption SqlLogOption) context.Context {
+	return context.WithValue(ctx, sqlLogOptionKey{}, sqlLogOption)
+}
+
+func sqlLogOptionFromContext(ctx context.Context) (SqlLogOption, bool) {
+	value := ctx.Value(sqlLogOptionKey{})
+	if value == nil {
+		return emptySqlLogOption, false
+	}
+
+	return value.(SqlLogOption), true
 }
