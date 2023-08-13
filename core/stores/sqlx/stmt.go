@@ -153,7 +153,7 @@ func (e *realSqlGuard) slowLog(ctx context.Context, duration time.Duration) bool
 		return duration > slowThreshold.Load() && sqlLogOpt.EnableSlow
 	}
 
-	return duration > slowThreshold.Load() && logSlowSql.True()
+	return duration > slowThreshold.Load()
 }
 
 func (e *realSqlGuard) statementLog(ctx context.Context) bool {
