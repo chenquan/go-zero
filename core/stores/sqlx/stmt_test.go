@@ -237,6 +237,15 @@ func TestDisableLogContext(t *testing.T) {
 		assert.True(t, guard.(*realSqlGuard).slowLog(ctx, time.Hour))
 		assert.False(t, guard.(*realSqlGuard).statementLog(ctx))
 	})
+
+	t.Run("no set", func(t *testing.T) {
+		logStmtSql.Set(false)
+		defer logStmtSql.Set(true)
+		guard := newGuard("any")
+		ctx := context.Background()
+		assert.True(t, guard.(*realSqlGuard).slowLog(ctx, time.Hour))
+		assert.False(t, guard.(*realSqlGuard).statementLog(ctx))
+	})
 }
 
 func TestNilGuard(t *testing.T) {
