@@ -54,7 +54,7 @@ func TestSqlConn(t *testing.T) {
 	assert.NotNil(t, badConn.Transact(func(session Session) error {
 		return nil
 	}))
-	assert.Equal(t, 14, len(me.GetSpans()))
+	assert.Equal(t, 15, len(me.GetSpans()))
 }
 
 func TestSqlConn_RawDB(t *testing.T) {
