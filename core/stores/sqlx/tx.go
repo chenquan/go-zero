@@ -11,7 +11,6 @@ type (
 
 	trans interface {
 		Session
-
 		CommitCtx(ctx context.Context) error
 		RollbackCtx(ctx context.Context) error
 	}
@@ -148,9 +147,7 @@ func (t txSession) CommitCtx(ctx context.Context) (err error) {
 	}()
 
 	guard := newGuard("transact")
-	if err = guard.start("COMMIT"); err != nil {
-		return
-	}
+	_ = guard.start("COMMIT")
 
 	err = t.Tx.Commit()
 	guard.finish(ctx, err)
@@ -165,9 +162,7 @@ func (t txSession) RollbackCtx(ctx context.Context) (err error) {
 	}()
 
 	guard := newGuard("transact")
-	if err = guard.start("ROLLBACK"); err != nil {
-		return
-	}
+	_ = guard.start("ROLLBACK")
 
 	err = t.Tx.Rollback()
 	guard.finish(ctx, err)
@@ -182,9 +177,7 @@ func begin(ctx context.Context, db *sql.DB) (t trans, err error) {
 	}()
 
 	guard := newGuard("transact")
-	if err = guard.start("BEGIN"); err != nil {
-		return
-	}
+	_ = guard.start("BEGIN")
 
 	var tx *sql.Tx
 	tx, err = db.Begin()

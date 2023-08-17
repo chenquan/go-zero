@@ -132,12 +132,25 @@ func (n *nilGuard) finish(_ context.Context, _ error) {
 	metricReqDur.Observe(duration.Milliseconds(), n.command)
 }
 
+func (e *realSqlGuard) start(q string, args ...any) error {
+	stmt, err := format(q, args...)
+	if err != nil {
+		return err
+	}
+
+	e.stmt = stmt
+	e.startTime = timex.Now()
+
+	return nil
+}
+
 func (e *realSqlGuard) finish(ctx context.Context, err error) {
 	duration := timex.Since(e.startTime)
+	logger := logx.WithContext(ctx).WithDuration(duration)
 	if e.slowLog(ctx, duration) {
-		logx.WithContext(ctx).WithDuration(duration).Slowf("[SQL] %s: slowcall - %s", e.command, e.stmt)
+		logger.Slowf("[SQL] %s: slowcall - %s", e.command, e.stmt)
 	} else if e.statementLog(ctx) {
-		logx.WithContext(ctx).WithDuration(duration).Infof("sql %s: %s", e.command, e.stmt)
+		logger.Infof("sql %s: %s", e.command, e.stmt)
 	}
 
 	if err != nil {
@@ -163,18 +176,6 @@ func (e *realSqlGuard) statementLog(ctx context.Context) bool {
 	}
 
 	return logStmtSql.True()
-}
-
-func (e *realSqlGuard) start(q string, args ...any) error {
-	stmt, err := format(q, args...)
-	if err != nil {
-		return err
-	}
-
-	e.stmt = stmt
-	e.startTime = timex.Now()
-
-	return nil
 }
 
 var emptySqlLogOption = LogOption{}
