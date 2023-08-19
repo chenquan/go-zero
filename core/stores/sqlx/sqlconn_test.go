@@ -286,8 +286,18 @@ func TestWithLogOption(t *testing.T) {
 			err := conn.QueryRow(&val, "any")
 			assert.NoError(t, err)
 			assert.Contains(t, buffer.String(), "sql query")
+
+			val = 0
+			rows = sqlmock.NewRows([]string{"foo"}).AddRow(1)
+			mock.ExpectPrepare("any").ExpectQuery().WillReturnRows(rows).WillDelayFor(time.Second * 1)
+			stmtSession, err := conn.Prepare("any")
+			assert.NoError(t, err)
+			err = stmtSession.QueryRow(&val)
+			assert.NoError(t, err)
+			assert.Contains(t, buffer.String(), "sql queryStmt:")
 		})
 	})
+
 	t.Run("EnableSlow", func(t *testing.T) {
 		dbtest.RunTest(t, func(db *sql.DB, mock sqlmock.Sqlmock) {
 			buffer := &bytes.Buffer{}
@@ -304,8 +314,18 @@ func TestWithLogOption(t *testing.T) {
 			err := conn.QueryRow(&val, "any")
 			assert.NoError(t, err)
 			assert.Contains(t, buffer.String(), "[SQL] query: slowcall")
+
+			val = 0
+			rows = sqlmock.NewRows([]string{"foo"}).AddRow(1)
+			mock.ExpectPrepare("any").ExpectQuery().WillReturnRows(rows).WillDelayFor(time.Second * 1)
+			stmtSession, err := conn.Prepare("any")
+			assert.NoError(t, err)
+			err = stmtSession.QueryRow(&val)
+			assert.NoError(t, err)
+			assert.Contains(t, buffer.String(), "[SQL] queryStmt: slowcall")
 		})
 	})
+
 }
 
 func buildConn() (mock sqlmock.Sqlmock, err error) {

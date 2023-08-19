@@ -450,7 +450,6 @@ func WithAcceptable(acceptable func(err error) bool) SqlOption {
 
 func WithLogOption(logOption LogOption) SqlOption {
 	return func(conn *commonSqlConn) {
-
 		conn.logOption = &logOption
 	}
 }
