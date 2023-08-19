@@ -58,8 +58,7 @@ func execStmt(ctx context.Context, conn stmtConn, q string, args ...any) (sql.Re
 	return result, err
 }
 
-func query(ctx context.Context, conn sessionConn, scanner func(*sql.Rows) error,
-	q string, args ...any) error {
+func query(ctx context.Context, conn sessionConn, scanner func(*sql.Rows) error, q string, args ...any) error {
 	guard := newGuard("query")
 	if err := guard.start(q, args...); err != nil {
 		return err
@@ -75,8 +74,7 @@ func query(ctx context.Context, conn sessionConn, scanner func(*sql.Rows) error,
 	return scanner(rows)
 }
 
-func queryStmt(ctx context.Context, conn stmtConn, scanner func(*sql.Rows) error,
-	q string, args ...any) error {
+func queryStmt(ctx context.Context, conn stmtConn, scanner func(*sql.Rows) error, q string, args ...any) error {
 	guard := newGuard("queryStmt")
 	if err := guard.start(q, args...); err != nil {
 		return err
@@ -166,7 +164,7 @@ func (e *realSqlGuard) slowLog(ctx context.Context, duration time.Duration) bool
 		return duration > slowThreshold.Load() && sqlLogOpt.EnableSlow
 	}
 
-	return duration > slowThreshold.Load()
+	return duration > slowThreshold.Load() && logSlowSql.True()
 }
 
 func (e *realSqlGuard) statementLog(ctx context.Context) bool {
@@ -178,26 +176,21 @@ func (e *realSqlGuard) statementLog(ctx context.Context) bool {
 	return logStmtSql.True()
 }
 
-var emptySqlLogOption = LogOption{}
+var emptySqlLogOption = logOption{}
 
 type (
-	LogOption struct {
-		EnableStatement bool
-		EnableSlow      bool
-	}
 	logOptionKey struct{}
 )
 
-// NewLogOptionContext returns a context that sets the SQL statement log output configuration.
-func NewLogOptionContext(ctx context.Context, logOption LogOption) context.Context {
-	return context.WithValue(ctx, logOptionKey{}, logOption)
+func newLogOptionContext(ctx context.Context, logOpt logOption) context.Context {
+	return context.WithValue(ctx, logOptionKey{}, logOpt)
 }
 
-func sqlLogOptionFromContext(ctx context.Context) (LogOption, bool) {
+func sqlLogOptionFromContext(ctx context.Context) (logOption, bool) {
 	value := ctx.Value(logOptionKey{})
 	if value == nil {
 		return emptySqlLogOption, false
 	}
 
-	return value.(LogOption), true
+	return value.(logOption), true
 }
