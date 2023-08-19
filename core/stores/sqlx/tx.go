@@ -146,7 +146,7 @@ func (t txSession) CommitCtx(ctx context.Context) (err error) {
 		endSpan(span, err)
 	}()
 
-	guard := newGuard("transact")
+	guard := newGuard(ctx, "transact")
 	_ = guard.start("COMMIT")
 
 	err = t.Tx.Commit()
@@ -161,7 +161,7 @@ func (t txSession) RollbackCtx(ctx context.Context) (err error) {
 		endSpan(span, err)
 	}()
 
-	guard := newGuard("transact")
+	guard := newGuard(ctx, "transact")
 	_ = guard.start("ROLLBACK")
 
 	err = t.Tx.Rollback()
@@ -176,7 +176,7 @@ func begin(ctx context.Context, db *sql.DB) (t trans, err error) {
 		endSpan(span, err)
 	}()
 
-	guard := newGuard("transact")
+	guard := newGuard(ctx, "transact")
 	_ = guard.start("BEGIN")
 
 	var tx *sql.Tx
