@@ -276,10 +276,7 @@ func TestWithLogOption(t *testing.T) {
 			logx.SetWriter(logx.NewWriter(buffer))
 			defer discardLog()
 
-			conn := NewSqlConnFromDB(db, WithLogOption(LogOption{
-				EnableStatement: true,
-				EnableSlow:      false,
-			}))
+			conn := NewSqlConnFromDB(db, WithStatementLog(true))
 			rows := sqlmock.NewRows([]string{"foo"}).AddRow(1)
 			mock.ExpectQuery("any").WillReturnRows(rows)
 			var val int
@@ -287,9 +284,10 @@ func TestWithLogOption(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Contains(t, buffer.String(), "sql query")
 
+			buffer.Reset()
 			val = 0
 			rows = sqlmock.NewRows([]string{"foo"}).AddRow(1)
-			mock.ExpectPrepare("any").ExpectQuery().WillReturnRows(rows).WillDelayFor(time.Second * 1)
+			mock.ExpectPrepare("any").ExpectQuery().WillReturnRows(rows)
 			stmtSession, err := conn.Prepare("any")
 			assert.NoError(t, err)
 			err = stmtSession.QueryRow(&val)
@@ -304,10 +302,7 @@ func TestWithLogOption(t *testing.T) {
 			logx.SetWriter(logx.NewWriter(buffer))
 			defer discardLog()
 
-			conn := NewSqlConnFromDB(db, WithLogOption(LogOption{
-				EnableStatement: false,
-				EnableSlow:      true,
-			}))
+			conn := NewSqlConnFromDB(db, WithSlowLog(true))
 			rows := sqlmock.NewRows([]string{"foo"}).AddRow(1)
 			mock.ExpectQuery("any").WillReturnRows(rows).WillDelayFor(time.Second * 1)
 			var val int
@@ -315,6 +310,7 @@ func TestWithLogOption(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Contains(t, buffer.String(), "[SQL] query: slowcall")
 
+			buffer.Reset()
 			val = 0
 			rows = sqlmock.NewRows([]string{"foo"}).AddRow(1)
 			mock.ExpectPrepare("any").ExpectQuery().WillReturnRows(rows).WillDelayFor(time.Second * 1)

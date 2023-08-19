@@ -105,28 +105,34 @@ type (
 		command   string
 		stmt      string
 		startTime time.Duration
-		logOpt    *LogOption
 	}
 	logOptSqlGuard struct {
-		command   string
-		stmt      string
-		startTime time.Duration
-		logOpt    LogOption
+		command         string
+		stmt            string
+		startTime       time.Duration
+		enableStatement bool
+		enableSlow      bool
 	}
 )
 
 func newGuard(ctx context.Context, command string) sqlGuard {
-	logOpt, ok := sqlLogOptionFromContext(ctx)
-	if ok {
-		return &logOptSqlGuard{
-			command: command,
-			logOpt:  logOpt,
-		}
+	logOpt, _ := sqlLogOptionFromContext(ctx)
+
+	logStmt := logStmtSql.True()
+	if logOpt.EnableStatement != nil {
+		logStmt = *logOpt.EnableStatement
 	}
 
-	if logStmtSql.True() || logSlowSql.True() {
-		return &realSqlGuard{
-			command: command,
+	logSlow := logSlowSql.True()
+	if logOpt.EnableSlow != nil {
+		logSlow = *logOpt.EnableSlow
+	}
+
+	if logSlow || logStmt {
+		return &logOptSqlGuard{
+			command:         command,
+			enableSlow:      logSlow,
+			enableStatement: logStmt,
 		}
 	}
 
@@ -210,28 +216,28 @@ func (l *logOptSqlGuard) finish(ctx context.Context, err error) {
 }
 
 func (l *logOptSqlGuard) slowLog(duration time.Duration) bool {
-	return duration > slowThreshold.Load() && l.logOpt.EnableSlow
+	return duration > slowThreshold.Load() && l.enableSlow
 }
 
 func (l *logOptSqlGuard) statementLog() bool {
-	return l.logOpt.EnableStatement
+	return l.enableStatement
 }
 
-var emptySqlLogOption = LogOption{}
+var emptySqlLogOption = logOption{}
 
 type (
 	logOptionKey struct{}
 )
 
-func newLogOptionContext(ctx context.Context, logOpt LogOption) context.Context {
+func newLogOptionContext(ctx context.Context, logOpt logOption) context.Context {
 	return context.WithValue(ctx, logOptionKey{}, logOpt)
 }
 
-func sqlLogOptionFromContext(ctx context.Context) (LogOption, bool) {
+func sqlLogOptionFromContext(ctx context.Context) (logOption, bool) {
 	value := ctx.Value(logOptionKey{})
 	if value == nil {
 		return emptySqlLogOption, false
 	}
 
-	return value.(LogOption), true
+	return value.(logOption), true
 }
