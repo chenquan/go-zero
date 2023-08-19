@@ -224,8 +224,8 @@ func TestDisableLogContext(t *testing.T) {
 			EnableSlow:      &no,
 		})
 		guard := newGuard(ctx, "any")
-		assert.False(t, guard.(*logOptSqlGuard).slowLog(time.Hour))
-		assert.True(t, guard.(*logOptSqlGuard).statementLog())
+		assert.False(t, guard.(*realSqlGuard).slowLog(time.Hour))
+		assert.True(t, guard.(*realSqlGuard).statementLog())
 	})
 
 	t.Run("DisableSlowLog", func(t *testing.T) {
@@ -234,8 +234,8 @@ func TestDisableLogContext(t *testing.T) {
 			EnableSlow:      &yes,
 		})
 		guard := newGuard(ctx, "any")
-		assert.True(t, guard.(*logOptSqlGuard).slowLog(time.Hour))
-		assert.False(t, guard.(*logOptSqlGuard).statementLog())
+		assert.True(t, guard.(*realSqlGuard).slowLog(time.Hour))
+		assert.False(t, guard.(*realSqlGuard).statementLog())
 	})
 }
 

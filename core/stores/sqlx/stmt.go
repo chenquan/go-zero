@@ -102,11 +102,6 @@ type (
 	}
 
 	realSqlGuard struct {
-		command   string
-		stmt      string
-		startTime time.Duration
-	}
-	logOptSqlGuard struct {
 		command         string
 		stmt            string
 		startTime       time.Duration
@@ -129,7 +124,7 @@ func newGuard(ctx context.Context, command string) sqlGuard {
 	}
 
 	if logSlow || logStmt {
-		return &logOptSqlGuard{
+		return &realSqlGuard{
 			command:         command,
 			enableSlow:      logSlow,
 			enableStatement: logStmt,
@@ -180,47 +175,11 @@ func (e *realSqlGuard) finish(ctx context.Context, err error) {
 }
 
 func (e *realSqlGuard) slowLog(duration time.Duration) bool {
-	return duration > slowThreshold.Load() && logSlowSql.True()
+	return duration > slowThreshold.Load() && e.enableSlow
 }
 
 func (e *realSqlGuard) statementLog() bool {
-	return logStmtSql.True()
-}
-
-func (l *logOptSqlGuard) start(q string, args ...any) error {
-	stmt, err := format(q, args...)
-	if err != nil {
-		return err
-	}
-
-	l.stmt = stmt
-	l.startTime = timex.Now()
-
-	return nil
-}
-
-func (l *logOptSqlGuard) finish(ctx context.Context, err error) {
-	duration := timex.Since(l.startTime)
-	logger := logx.WithContext(ctx).WithDuration(duration)
-	if l.slowLog(duration) {
-		logger.Slowf("[SQL] %s: slowcall - %s", l.command, l.stmt)
-	} else if l.statementLog() {
-		logger.Infof("sql %s: %s", l.command, l.stmt)
-	}
-
-	if err != nil {
-		logSqlError(ctx, l.stmt, err)
-	}
-
-	metricReqDur.Observe(duration.Milliseconds(), l.command)
-}
-
-func (l *logOptSqlGuard) slowLog(duration time.Duration) bool {
-	return duration > slowThreshold.Load() && l.enableSlow
-}
-
-func (l *logOptSqlGuard) statementLog() bool {
-	return l.enableStatement
+	return e.enableStatement
 }
 
 var emptySqlLogOption = logOption{}
