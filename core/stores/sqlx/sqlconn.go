@@ -448,6 +448,7 @@ func WithAcceptable(acceptable func(err error) bool) SqlOption {
 	}
 }
 
+// WithStatementLog returns a SqlOption to set whether to output SQL statements in the log.
 func WithStatementLog(enable bool) SqlOption {
 	return func(conn *commonSqlConn) {
 		if conn.logOption == nil {
@@ -457,6 +458,7 @@ func WithStatementLog(enable bool) SqlOption {
 	}
 }
 
+// WithSlowLog returns a SqlOption to set whether to output slow SQL statements in the log.
 func WithSlowLog(enable bool) SqlOption {
 	return func(conn *commonSqlConn) {
 		if conn.logOption == nil {
