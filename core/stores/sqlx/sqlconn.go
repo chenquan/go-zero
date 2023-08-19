@@ -56,7 +56,7 @@ type (
 		QueryRowsPartialCtx(ctx context.Context, v any, args ...any) error
 	}
 
-	logOption struct {
+	LogOption struct {
 		EnableStatement bool
 		EnableSlow      bool
 	}
@@ -70,7 +70,7 @@ type (
 		beginTx   beginnable
 		brk       breaker.Breaker
 		accept    func(error) bool
-		logOption *logOption
+		logOption *LogOption
 	}
 
 	connProvider func() (*sql.DB, error)
@@ -85,7 +85,7 @@ type (
 	statement struct {
 		query     string
 		stmt      *sql.Stmt
-		logOption *logOption
+		logOption *LogOption
 	}
 
 	stmtConn interface {
@@ -448,20 +448,9 @@ func WithAcceptable(acceptable func(err error) bool) SqlOption {
 	}
 }
 
-func WithEnableStatementLog() SqlOption {
+func WithLogOption(logOption LogOption) SqlOption {
 	return func(conn *commonSqlConn) {
-		if conn.logOption == nil {
-			conn.logOption = &logOption{}
-		}
-		conn.logOption.EnableStatement = true
-	}
-}
 
-func WithEnableSlowLog() SqlOption {
-	return func(conn *commonSqlConn) {
-		if conn.logOption == nil {
-			conn.logOption = &logOption{}
-		}
-		conn.logOption.EnableSlow = true
+		conn.logOption = &logOption
 	}
 }

@@ -105,13 +105,13 @@ type (
 		command   string
 		stmt      string
 		startTime time.Duration
-		logOpt    *logOption
+		logOpt    *LogOption
 	}
 	logOptSqlGuard struct {
 		command   string
 		stmt      string
 		startTime time.Duration
-		logOpt    logOption
+		logOpt    LogOption
 	}
 )
 
@@ -174,12 +174,10 @@ func (e *realSqlGuard) finish(ctx context.Context, err error) {
 }
 
 func (e *realSqlGuard) slowLog(duration time.Duration) bool {
-
 	return duration > slowThreshold.Load() && logSlowSql.True()
 }
 
 func (e *realSqlGuard) statementLog() bool {
-
 	return logStmtSql.True()
 }
 
@@ -219,21 +217,21 @@ func (l *logOptSqlGuard) statementLog() bool {
 	return l.logOpt.EnableStatement
 }
 
-var emptySqlLogOption = logOption{}
+var emptySqlLogOption = LogOption{}
 
 type (
 	logOptionKey struct{}
 )
 
-func newLogOptionContext(ctx context.Context, logOpt logOption) context.Context {
+func newLogOptionContext(ctx context.Context, logOpt LogOption) context.Context {
 	return context.WithValue(ctx, logOptionKey{}, logOpt)
 }
 
-func sqlLogOptionFromContext(ctx context.Context) (logOption, bool) {
+func sqlLogOptionFromContext(ctx context.Context) (LogOption, bool) {
 	value := ctx.Value(logOptionKey{})
 	if value == nil {
 		return emptySqlLogOption, false
 	}
 
-	return value.(logOption), true
+	return value.(LogOption), true
 }

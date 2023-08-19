@@ -206,7 +206,7 @@ func TestDisableStmtLog(t *testing.T) {
 
 func TestDisableLogContext(t *testing.T) {
 	t.Run("DisableLog", func(t *testing.T) {
-		ctx := newLogOptionContext(context.Background(), logOption{
+		ctx := newLogOptionContext(context.Background(), LogOption{
 			EnableStatement: false,
 			EnableSlow:      false,
 		})
@@ -218,7 +218,7 @@ func TestDisableLogContext(t *testing.T) {
 	t.Run("DisableStatementLog", func(t *testing.T) {
 		logStmtSql.Set(false)
 		defer logStmtSql.Set(true)
-		ctx := newLogOptionContext(context.Background(), logOption{
+		ctx := newLogOptionContext(context.Background(), LogOption{
 			EnableStatement: true,
 			EnableSlow:      false,
 		})
@@ -228,7 +228,7 @@ func TestDisableLogContext(t *testing.T) {
 	})
 
 	t.Run("DisableSlowLog", func(t *testing.T) {
-		ctx := newLogOptionContext(context.Background(), logOption{
+		ctx := newLogOptionContext(context.Background(), LogOption{
 			EnableStatement: false,
 			EnableSlow:      true,
 		})
@@ -236,15 +236,6 @@ func TestDisableLogContext(t *testing.T) {
 		assert.True(t, guard.(*logOptSqlGuard).slowLog(time.Hour))
 		assert.False(t, guard.(*logOptSqlGuard).statementLog())
 	})
-
-	//t.Run("no set", func(t *testing.T) {
-	//	logStmtSql.Set(false)
-	//	defer logStmtSql.Set(true)
-	//	guard := newGuard(context.Background(), "any")
-	//	ctx := context.Background()
-	//	assert.True(t, guard.(*realSqlGuard).slowLog(ctx, time.Hour))
-	//	assert.False(t, guard.(*realSqlGuard).statementLog(ctx))
-	//})
 }
 
 func TestNilGuard(t *testing.T) {

@@ -1,10 +1,12 @@
 package sqlx
 
 import (
+	"bytes"
 	"database/sql"
 	"errors"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +19,11 @@ import (
 const mockedDatasource = "sqlmock"
 
 func init() {
-	logx.Disable()
+	discardLog()
+}
+
+func discardLog() {
+	logx.SetWriter(logx.NewWriter(io.Discard))
 }
 
 func TestSqlConn(t *testing.T) {
@@ -260,6 +266,45 @@ func TestBreakerWithScanError(t *testing.T) {
 				break
 			}
 		}
+	})
+}
+
+func TestWithLogOption(t *testing.T) {
+	t.Run("EnableStatement", func(t *testing.T) {
+		dbtest.RunTest(t, func(db *sql.DB, mock sqlmock.Sqlmock) {
+			buffer := &bytes.Buffer{}
+			logx.SetWriter(logx.NewWriter(buffer))
+			defer discardLog()
+
+			conn := NewSqlConnFromDB(db, WithLogOption(LogOption{
+				EnableStatement: true,
+				EnableSlow:      false,
+			}))
+			rows := sqlmock.NewRows([]string{"foo"}).AddRow(1)
+			mock.ExpectQuery("any").WillReturnRows(rows)
+			var val int
+			err := conn.QueryRow(&val, "any")
+			assert.NoError(t, err)
+			assert.Contains(t, buffer.String(), "sql query")
+		})
+	})
+	t.Run("EnableSlow", func(t *testing.T) {
+		dbtest.RunTest(t, func(db *sql.DB, mock sqlmock.Sqlmock) {
+			buffer := &bytes.Buffer{}
+			logx.SetWriter(logx.NewWriter(buffer))
+			defer discardLog()
+
+			conn := NewSqlConnFromDB(db, WithLogOption(LogOption{
+				EnableStatement: false,
+				EnableSlow:      true,
+			}))
+			rows := sqlmock.NewRows([]string{"foo"}).AddRow(1)
+			mock.ExpectQuery("any").WillReturnRows(rows).WillDelayFor(time.Second * 1)
+			var val int
+			err := conn.QueryRow(&val, "any")
+			assert.NoError(t, err)
+			assert.Contains(t, buffer.String(), "[SQL] query: slowcall")
+		})
 	})
 }
 
