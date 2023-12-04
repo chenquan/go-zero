@@ -1,3 +1,5 @@
+name: Release goctl
+
 on:
   push:
     tags:
@@ -26,3 +28,4 @@ jobs:
           project_path: "tools/goctl"
           binary_name: "goctl"
           extra_files: tools/goctl/readme.md tools/goctl/readme-cn.md
+          build_flags: "-buildvcs=false"
